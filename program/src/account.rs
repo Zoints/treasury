@@ -11,6 +11,43 @@ use solana_program::{
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Settings {
+    token: Pubkey,
+}
+
+impl Sealed for Settings {}
+
+impl Settings {
+    pub fn program_address(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"settings"], program_id)
+    }
+
+    pub fn verify_program_key(key: &Pubkey, program_id: &Pubkey) -> Result<u8, ProgramError> {
+        let (derived_key, seed) = Self::program_address(program_id);
+        if *key != derived_key {
+            msg!("invalid settings account");
+            return Err(TreasuryError::InvalidSettingsKey.into());
+        }
+        Ok(seed)
+    }
+}
+
+impl Pack for Settings {
+    const LEN: usize = 32;
+    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+        let src = array_ref![src, 0, Settings::LEN];
+        let token = Pubkey::new(src);
+        Ok(Settings { token })
+    }
+
+    fn pack_into_slice(&self, dst: &mut [u8]) {
+        let token_dst = array_mut_ref![dst, 0, Settings::LEN];
+        *token_dst = self.token.to_bytes();
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct UserCommunity {
     authority: Pubkey,
 }

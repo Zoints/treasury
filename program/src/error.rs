@@ -7,6 +7,9 @@ pub enum TreasuryError {
     /// Invalid instruction
     #[error("Invalid instruction")]
     InvalidInstruction,
+    /// Invalid Settings Key
+    #[error("Invalid Settings Key")]
+    InvalidSettingsKey,
     /// Invalid User Community Key
     #[error("Invalid User Community Key")]
     InvalidUserCommunityKey,

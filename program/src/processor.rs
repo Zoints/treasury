@@ -12,7 +12,11 @@ use solana_program::{
     sysvar::{self, clock::Clock, rent::Rent, slot_hashes::SlotHashes, Sysvar, SysvarId},
 };
 
-use crate::{account::ZointsCommunity, error::TreasuryError, instruction::TreasuryInstruction};
+use crate::{
+    account::{Settings, ZointsCommunity},
+    error::TreasuryError,
+    instruction::TreasuryInstruction,
+};
 
 pub struct Processor {}
 impl Processor {
@@ -38,6 +42,17 @@ impl Processor {
         accounts: &[AccountInfo],
         token: Pubkey,
     ) -> ProgramResult {
+        let iter = &mut accounts.iter();
+        let funder = next_account_info(iter)?;
+        let token_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let rent_info = next_account_info(iter)?;
+        let rent = Rent::from_account_info(rent_info)?;
+
+        // verify that token is an spl mint
+
+        Settings::verify_program_key(settings_info.key, program_id)?;
+
         Ok(())
     }
 
