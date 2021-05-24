@@ -85,7 +85,7 @@ impl ZointsCommunity {
         if name.len() > MAX_SEED_LEN {
             return Err(TreasuryError::ZointsCommunityNameTooLong.into());
         }
-        match Regex::new(r"^[A-Za-z0-9_\-]+$").unwrap().is_match(name) {
+        match Regex::new(r"^[A-Za-z0-9_\-\.()]+$").unwrap().is_match(name) {
             true => Ok(()),
             false => Err(TreasuryError::ZointsCommunityNameTooShort.into()),
         }
