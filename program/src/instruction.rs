@@ -2,11 +2,14 @@ use crate::error::TreasuryError;
 use arrayref::array_ref;
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
+use solana_program::pubkey::Pubkey;
+use solana_program::pubkey::PUBKEY_BYTES;
 use std::mem::size_of;
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum TreasuryInstruction {
+    Initialize { token: Pubkey },
     CreateUserTreasury,
     CreateCommunityTreasury { name: Vec<u8> },
 }
@@ -18,8 +21,11 @@ impl TreasuryInstruction {
         let (&ins, rest) = input.split_first().ok_or(InvalidInstruction)?;
 
         Ok(match ins {
-            0 => TreasuryInstruction::CreateUserTreasury,
-            1 => {
+            0 => TreasuryInstruction::Initialize {
+                token: Pubkey::new(rest),
+            },
+            1 => TreasuryInstruction::CreateUserTreasury,
+            2 => {
                 let (name, _rest) = unpack_vec(rest)?;
                 TreasuryInstruction::CreateCommunityTreasury { name }
             }
@@ -30,9 +36,13 @@ impl TreasuryInstruction {
     pub fn pack(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(size_of::<Self>());
         match self {
-            TreasuryInstruction::CreateUserTreasury => buf.push(0),
+            &TreasuryInstruction::Initialize { token } => {
+                buf.push(0);
+                buf.extend_from_slice(&token.to_bytes());
+            }
+            TreasuryInstruction::CreateUserTreasury => buf.push(1),
             TreasuryInstruction::CreateCommunityTreasury { name } => {
-                buf.push(1);
+                buf.push(2);
                 pack_vec(&name, &mut buf);
             }
         }

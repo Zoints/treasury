@@ -1,3 +1,4 @@
+pub mod account;
 pub mod error;
 pub mod instruction;
 pub mod processor;
