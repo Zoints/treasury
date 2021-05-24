@@ -1,9 +1,3 @@
-use crate::{
-    account::{CardRarity, CreatorMeta, SeriesMeta, SystemMeta, Ticket, TicketState},
-    error::CardError,
-    instruction::CardInstruction,
-};
-use crate::{algorithms::cards_per_series, constants::FUNDER_FEE};
 use arrayref::{array_ref, array_refs};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
