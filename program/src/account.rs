@@ -82,6 +82,7 @@ pub struct UserCommunity {
 impl Sealed for UserCommunity {}
 
 impl UserCommunity {
+    pub const FEE: u64 = 1_000;
     pub fn program_address(user: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"user", &user.to_bytes()], program_id)
     }
@@ -125,6 +126,7 @@ pub struct ZointsCommunity {
 impl Sealed for ZointsCommunity {}
 
 impl ZointsCommunity {
+    pub const FEE: u64 = 5_000;
     pub fn program_address(name: &Vec<u8>, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"zoints", name], program_id)
     }

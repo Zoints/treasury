@@ -15,7 +15,7 @@ use solana_program::{
 use spl_token::state::Mint;
 
 use crate::{
-    account::{Settings, ZointsCommunity},
+    account::{Settings, UserCommunity, ZointsCommunity},
     error::TreasuryError,
     instruction::TreasuryInstruction,
 };
@@ -72,7 +72,42 @@ impl Processor {
         accounts: &[AccountInfo],
     ) -> ProgramResult {
         let iter = &mut accounts.iter();
-        let creator = next_account_info(iter)?;
+        let funder_info = next_account_info(iter)?;
+        let creator_info = next_account_info(iter)?;
+        let creator_associated_info = next_account_info(iter)?;
+        let community_info = next_account_info(iter)?;
+        let mint_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let rent_info = next_account_info(iter)?;
+        let rent = Rent::from_account_info(rent_info)?;
+
+        if !creator_info.is_signer {
+            return Err(TreasuryError::MissingCreatorSignature.into());
+        }
+
+        let settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        if settings.token != *mint_info.key {
+            return Err(TreasuryError::MintWrongToken.into());
+        }
+
+        Mint::unpack(&mint_info.data.borrow()).map_err(|_| TreasuryError::MintInvalid)?;
+
+        let associated_account =
+            spl_token::state::Account::unpack(&creator_associated_info.data.borrow())?;
+        if associated_account.owner != *creator_info.key {
+            return Err(TreasuryError::AssociatedAccountInvalid.into());
+        }
+
+        if associated_account.mint != *mint_info.key {
+            return Err(TreasuryError::AssociatedAccountWrongMint.into());
+        }
+
+        if associated_account.amount < UserCommunity::FEE {
+            return Err(TreasuryError::NotEnoughZEE.into());
+        }
+
+        let seed =
+            UserCommunity::verify_program_key(community_info.key, creator_info.key, program_id)?;
 
         Ok(())
     }

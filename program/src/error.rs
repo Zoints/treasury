@@ -34,6 +34,25 @@ pub enum TreasuryError {
     /// The token is not a valid SPL Token Mint
     #[error("The token is not a valid SPL Token Mint")]
     TokenNotSPLToken,
+    /// Missing Creator's Signature
+    #[error("Missing Creator's Signature")]
+    MissingCreatorSignature,
+    /// Associated account is invalid
+    #[error("Associated account is invalid")]
+    AssociatedAccountInvalid,
+    /// Associated account is for the wrong Mint
+    #[error("Associated account is for the wrong Mint")]
+    AssociatedAccountWrongMint,
+    /// Mint is invalid
+    #[error("Mint is invalid")]
+    MintInvalid,
+    /// Mint is for the wrong token
+    #[error("Mint is for the wrong token")]
+    MintWrongToken,
+
+    /// Not enough ZEE to cover the cost of creation
+    #[error("Not enough ZEE to cover the cost of creation")]
+    NotEnoughZEE,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {
