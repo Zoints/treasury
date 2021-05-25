@@ -142,6 +142,13 @@ impl ZointsCommunity {
         Ok(seed)
     }
 
+    fn valid_character(n: u8) -> bool {
+        match n as char {
+            'A'..='Z' | 'a'..='z' | '_' | '-' | '.' | '(' | ')' => true,
+            _ => false,
+        }
+    }
+
     pub fn valid_name(name: &Vec<u8>) -> Result<(), ProgramError> {
         if name.len() < 1 {
             return Err(TreasuryError::ZointsCommunityNameTooShort.into());
@@ -149,11 +156,11 @@ impl ZointsCommunity {
         if name.len() > MAX_SEED_LEN {
             return Err(TreasuryError::ZointsCommunityNameTooLong.into());
         }
-        /*match Regex::new(r"^[A-Za-z0-9_\-\.()]+$").unwrap().is_match(name) {
+
+        match name.iter().all(|&n| ZointsCommunity::valid_character(n)) {
             true => Ok(()),
             false => Err(TreasuryError::ZointsCommunityNameTooShort.into()),
-        }*/
-        Ok(())
+        }
     }
 }
 
