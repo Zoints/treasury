@@ -7,6 +7,12 @@ pub enum TreasuryError {
     /// Invalid instruction
     #[error("Invalid instruction")]
     InvalidInstruction,
+    /// Program has already been initialized
+    #[error("Program has already been initialized")]
+    AlreadyInitialized,
+    /// Program has not been initialized
+    #[error("Program has not been initialized")]
+    NotInitialized,
     /// Invalid Settings Key
     #[error("Invalid Settings Key")]
     InvalidSettingsKey,
@@ -25,6 +31,9 @@ pub enum TreasuryError {
     /// Name contains invalid characters
     #[error("Name contains invalid characters")]
     ZointsCommunityNameInvalidCharacters,
+    /// The token is not a valid SPL Token Mint
+    #[error("The token is not a valid SPL Token Mint")]
+    TokenNotSPLToken,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {

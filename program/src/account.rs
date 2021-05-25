@@ -1,9 +1,14 @@
 use crate::error::TreasuryError;
 use arrayref::{array_mut_ref, array_ref};
 use regex::bytes::Regex;
+use solana_program::account_info::Account;
+use solana_program::account_info::AccountInfo;
+use solana_program::entrypoint::ProgramResult;
+use solana_program::program::invoke_signed;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 use solana_program::pubkey::MAX_SEED_LEN;
+use solana_program::system_instruction;
 use solana_program::{
     msg,
     program_pack::{Pack, Sealed},
@@ -12,7 +17,7 @@ use solana_program::{
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Settings {
-    token: Pubkey,
+    pub token: Pubkey,
 }
 
 impl Sealed for Settings {}
@@ -29,6 +34,29 @@ impl Settings {
             return Err(TreasuryError::InvalidSettingsKey.into());
         }
         Ok(seed)
+    }
+
+    pub fn create_account<'a>(
+        funder_info: &AccountInfo<'a>,
+        settings_info: &AccountInfo<'a>,
+        rent: solana_program::rent::Rent,
+        program_id: &Pubkey,
+    ) -> ProgramResult {
+        let (_, seed) = Settings::program_address(program_id);
+
+        let lamports = rent.minimum_balance(Settings::LEN);
+        let space = Settings::LEN as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                settings_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), settings_info.clone()],
+            &[&[b"settings", &[seed]]],
+        )
     }
 }
 
@@ -49,7 +77,7 @@ impl Pack for Settings {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct UserCommunity {
-    authority: Pubkey,
+    pub authority: Pubkey,
 }
 
 impl Sealed for UserCommunity {}
@@ -92,7 +120,7 @@ impl Pack for UserCommunity {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ZointsCommunity {
-    authority: Pubkey,
+    pub authority: Pubkey,
 }
 
 impl Sealed for ZointsCommunity {}

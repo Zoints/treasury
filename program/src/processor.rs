@@ -12,6 +12,8 @@ use solana_program::{
     sysvar::{self, clock::Clock, rent::Rent, slot_hashes::SlotHashes, Sysvar, SysvarId},
 };
 
+use spl_token::state::Mint;
+
 use crate::{
     account::{Settings, ZointsCommunity},
     error::TreasuryError,
@@ -22,9 +24,9 @@ pub struct Processor {}
 impl Processor {
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         match TreasuryInstruction::unpack(input)? {
-            TreasuryInstruction::Initialize { token } => {
+            TreasuryInstruction::Initialize => {
                 msg!("Instruction :: Initialize");
-                Self::process_initialize(program_id, accounts, token)
+                Self::process_initialize(program_id, accounts)
             }
             TreasuryInstruction::CreateUserTreasury => {
                 msg!("Instruction :: CreateUserTreasury");
@@ -37,21 +39,30 @@ impl Processor {
         }
     }
 
-    pub fn process_initialize(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        token: Pubkey,
-    ) -> ProgramResult {
+    pub fn process_initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
         let iter = &mut accounts.iter();
-        let funder = next_account_info(iter)?;
+        let funder_info = next_account_info(iter)?;
         let token_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
 
-        // verify that token is an spl mint
+        if settings_info.try_data_len()? > 0 {
+            return Err(TreasuryError::AlreadyInitialized.into());
+        }
+
+        let _ = Mint::unpack(&token_info.data.borrow_mut())
+            .map_err(|_| TreasuryError::TokenNotSPLToken)?;
 
         Settings::verify_program_key(settings_info.key, program_id)?;
+
+        Settings::create_account(funder_info, settings_info, rent, program_id)?;
+
+        let settings = Settings {
+            token: *token_info.key,
+        };
+
+        Settings::pack(settings, &mut settings_info.data.borrow_mut())?;
 
         Ok(())
     }
