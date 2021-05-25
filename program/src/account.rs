@@ -1,6 +1,5 @@
 use crate::error::TreasuryError;
 use arrayref::{array_mut_ref, array_ref};
-use regex::bytes::Regex;
 use solana_program::account_info::Account;
 use solana_program::account_info::AccountInfo;
 use solana_program::entrypoint::ProgramResult;
@@ -150,10 +149,11 @@ impl ZointsCommunity {
         if name.len() > MAX_SEED_LEN {
             return Err(TreasuryError::ZointsCommunityNameTooLong.into());
         }
-        match Regex::new(r"^[A-Za-z0-9_\-\.()]+$").unwrap().is_match(name) {
+        /*match Regex::new(r"^[A-Za-z0-9_\-\.()]+$").unwrap().is_match(name) {
             true => Ok(()),
             false => Err(TreasuryError::ZointsCommunityNameTooShort.into()),
-        }
+        }*/
+        Ok(())
     }
 }
 

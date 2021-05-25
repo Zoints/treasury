@@ -13,7 +13,7 @@ num-derive = "0.3"
 num-traits = "0.2"
 thiserror = "1"
 arrayref = "0.3.6"
-regex = "1.5.4"
+
 
 [features]
 test-bpf = []
