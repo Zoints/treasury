@@ -144,7 +144,7 @@ impl ZointsCommunity {
 
     fn valid_character(n: u8) -> bool {
         match n as char {
-            'A'..='Z' | 'a'..='z' | '_' | '-' | '.' | '(' | ')' => true,
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '-' | '.' | '(' | ')' => true,
             _ => false,
         }
     }
@@ -159,7 +159,7 @@ impl ZointsCommunity {
 
         match name.iter().all(|&n| ZointsCommunity::valid_character(n)) {
             true => Ok(()),
-            false => Err(TreasuryError::ZointsCommunityNameTooShort.into()),
+            false => Err(TreasuryError::ZointsCommunityNameInvalidCharacters.into()),
         }
     }
 }
@@ -177,5 +177,53 @@ impl Pack for ZointsCommunity {
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let authority_dst = array_mut_ref![dst, 0, ZointsCommunity::LEN];
         *authority_dst = self.authority.to_bytes();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cast_error(e: TreasuryError) -> Result<(), ProgramError> {
+        return Err(e.into());
+    }
+
+    #[test]
+    pub fn test_verify_name() {
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameTooShort)
+        );
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"000000000000000000000000000000001".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameTooLong)
+        );
+        assert_eq!(ZointsCommunity::valid_name(&b"a".to_vec()), Ok(()));
+
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"00000000000000000000000000000000".to_vec()),
+            Ok(())
+        );
+        assert_eq!(ZointsCommunity::valid_name(&b"valid_name".to_vec()), Ok(()));
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"aAzZ09-_.()".to_vec()),
+            Ok(())
+        );
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"invalid name".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+        );
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"%".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+        );
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"%20".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+        );
+        assert_eq!(
+            ZointsCommunity::valid_name(&b"random{word".to_vec()),
+            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+        );
     }
 }
