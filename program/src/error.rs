@@ -16,6 +16,9 @@ pub enum TreasuryError {
     /// Invalid Settings Key
     #[error("Invalid Settings Key")]
     InvalidSettingsKey,
+    /// The authority did not sign the transaction
+    #[error("The authority did not sign the transaction")]
+    MissingAuthoritySignature,
     /// Invalid User Community Key
     #[error("Invalid User Community Key")]
     InvalidUserCommunityKey,

@@ -1,5 +1,6 @@
 use crate::error::TreasuryError;
 use arrayref::{array_mut_ref, array_ref};
+use arrayref::{array_refs, mut_array_refs};
 use solana_program::account_info::Account;
 use solana_program::account_info::AccountInfo;
 use solana_program::entrypoint::ProgramResult;
@@ -17,6 +18,10 @@ use solana_program::{
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Settings {
     pub token: Pubkey,
+    pub fee_recipient: Pubkey,
+    pub price_authority: Pubkey,
+    pub launch_fee_user: u64,
+    pub launch_fee_zoints: u64,
 }
 
 impl Sealed for Settings {}
@@ -60,16 +65,39 @@ impl Settings {
 }
 
 impl Pack for Settings {
-    const LEN: usize = 32;
+    const LEN: usize = 32 + 32 + 32 + 8 + 8;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, Settings::LEN];
-        let token = Pubkey::new(src);
-        Ok(Settings { token })
+        let (token, fee_recipient, price_authority, launch_fee_user, launch_fee_zoints) =
+            array_refs![src, 32, 32, 32, 8, 8];
+        let token = Pubkey::new(token);
+        let fee_recipient = Pubkey::new(fee_recipient);
+        let price_authority = Pubkey::new(price_authority);
+        let launch_fee_user = u64::from_le_bytes(*launch_fee_user);
+        let launch_fee_zoints = u64::from_le_bytes(*launch_fee_zoints);
+        Ok(Settings {
+            token,
+            fee_recipient,
+            price_authority,
+            launch_fee_user,
+            launch_fee_zoints,
+        })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let token_dst = array_mut_ref![dst, 0, Settings::LEN];
+        let dst = array_mut_ref![dst, 0, Settings::LEN];
+        let (
+            token_dst,
+            fee_recipient_dst,
+            price_authority_dst,
+            launch_fee_user_dst,
+            launch_fee_zoints_dst,
+        ) = mut_array_refs![dst, 32, 32, 32, 8, 8];
         *token_dst = self.token.to_bytes();
+        *fee_recipient_dst = self.fee_recipient.to_bytes();
+        *price_authority_dst = self.price_authority.to_bytes();
+        *launch_fee_user_dst = self.launch_fee_user.to_le_bytes();
+        *launch_fee_zoints_dst = self.launch_fee_zoints.to_le_bytes();
     }
 }
 

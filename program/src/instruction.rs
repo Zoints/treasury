@@ -4,12 +4,13 @@ use solana_program::msg;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 use solana_program::pubkey::PUBKEY_BYTES;
+use std::convert::TryInto;
 use std::mem::size_of;
 
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum TreasuryInstruction {
-    Initialize,
+    Initialize { fee_user: u64, fee_zoints: u64 },
     CreateUserTreasury,
     CreateCommunityTreasury { name: Vec<u8> },
 }
@@ -21,7 +22,26 @@ impl TreasuryInstruction {
         let (&ins, rest) = input.split_first().ok_or(InvalidInstruction)?;
 
         Ok(match ins {
-            0 => TreasuryInstruction::Initialize,
+            0 => {
+                let (fee_user, rest) = rest.split_at(8);
+                let fee_user = fee_user
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+
+                let (fee_zoints, rest) = rest.split_at(8);
+                let fee_zoints = fee_zoints
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+
+                TreasuryInstruction::Initialize {
+                    fee_user,
+                    fee_zoints,
+                }
+            }
             1 => TreasuryInstruction::CreateUserTreasury,
             2 => {
                 let (name, _rest) = unpack_vec(rest)?;
@@ -34,7 +54,14 @@ impl TreasuryInstruction {
     pub fn pack(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(size_of::<Self>());
         match self {
-            &TreasuryInstruction::Initialize => buf.push(0),
+            &TreasuryInstruction::Initialize {
+                fee_user,
+                fee_zoints,
+            } => {
+                buf.push(0);
+                buf.extend_from_slice(&fee_user.to_le_bytes());
+                buf.extend_from_slice(&fee_zoints.to_le_bytes());
+            }
             TreasuryInstruction::CreateUserTreasury => buf.push(1),
             TreasuryInstruction::CreateCommunityTreasury { name } => {
                 buf.push(2);

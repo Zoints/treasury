@@ -12,7 +12,7 @@ use solana_program::{
     sysvar::{self, clock::Clock, rent::Rent, slot_hashes::SlotHashes, Sysvar, SysvarId},
 };
 
-use spl_token::state::Mint;
+use spl_token::state::{Account, Mint};
 
 use crate::{
     account::{Settings, UserCommunity, ZointsCommunity},
@@ -24,9 +24,12 @@ pub struct Processor {}
 impl Processor {
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         match TreasuryInstruction::unpack(input)? {
-            TreasuryInstruction::Initialize => {
+            TreasuryInstruction::Initialize {
+                fee_user,
+                fee_zoints,
+            } => {
                 msg!("Instruction :: Initialize");
-                Self::process_initialize(program_id, accounts)
+                Self::process_initialize(program_id, accounts, fee_user, fee_zoints)
             }
             TreasuryInstruction::CreateUserTreasury => {
                 msg!("Instruction :: CreateUserTreasury");
@@ -39,10 +42,17 @@ impl Processor {
         }
     }
 
-    pub fn process_initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    pub fn process_initialize(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        launch_fee_user: u64,
+        launch_fee_zoints: u64,
+    ) -> ProgramResult {
         let iter = &mut accounts.iter();
         let funder_info = next_account_info(iter)?;
         let token_info = next_account_info(iter)?;
+        let authority_info = next_account_info(iter)?;
+        let fee_recipient_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
@@ -51,8 +61,17 @@ impl Processor {
             return Err(TreasuryError::AlreadyInitialized.into());
         }
 
+        if !authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
         let _ = Mint::unpack(&token_info.data.borrow_mut())
             .map_err(|_| TreasuryError::TokenNotSPLToken)?;
+
+        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())?;
+        if fee_recipient.mint != *token_info.key {
+            return Err(TreasuryError::AssociatedAccountWrongMint.into());
+        }
 
         Settings::verify_program_key(settings_info.key, program_id)?;
 
@@ -60,6 +79,10 @@ impl Processor {
 
         let settings = Settings {
             token: *token_info.key,
+            fee_recipient: *fee_recipient_info.key,
+            price_authority: *authority_info.key,
+            launch_fee_user,
+            launch_fee_zoints,
         };
 
         Settings::pack(settings, &mut settings_info.data.borrow_mut())?;
@@ -92,8 +115,7 @@ impl Processor {
 
         Mint::unpack(&mint_info.data.borrow()).map_err(|_| TreasuryError::MintInvalid)?;
 
-        let associated_account =
-            spl_token::state::Account::unpack(&creator_associated_info.data.borrow())?;
+        let associated_account = Account::unpack(&creator_associated_info.data.borrow())?;
         if associated_account.owner != *creator_info.key {
             return Err(TreasuryError::AssociatedAccountInvalid.into());
         }
