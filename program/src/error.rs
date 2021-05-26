@@ -56,6 +56,14 @@ pub enum TreasuryError {
     /// Not enough ZEE to cover the cost of creation
     #[error("Not enough ZEE to cover the cost of creation")]
     NotEnoughZEE,
+
+    /// Invalid Fee Recipient
+    #[error("Invalid Fee Recipient")]
+    InvalidFeeRecipient,
+
+    /// Invalid Price Authority
+    #[error("Invalid Price Authority")]
+    InvalidPriceAuthority,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {

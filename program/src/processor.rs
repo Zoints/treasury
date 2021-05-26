@@ -113,24 +113,37 @@ impl Processor {
         if settings.token != *mint_info.key {
             return Err(TreasuryError::MintWrongToken.into());
         }
+        settings.verify_fee_recipient(fee_recipient_info.key)?;
 
-        Mint::unpack(&mint_info.data.borrow()).map_err(|_| TreasuryError::MintInvalid)?;
+        let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
+            mint_info,
+            creator_info,
+            creator_associated_info,
+            settings.launch_fee_user,
+        )?;
 
-        let associated_account = Account::unpack(&creator_associated_info.data.borrow())?;
-        if associated_account.owner != *creator_info.key {
-            return Err(TreasuryError::AssociatedAccountInvalid.into());
-        }
+        UserTreasury::create_account(funder_info, treasury_info, creator_info, rent, program_id)?;
 
-        if associated_account.mint != *mint_info.key {
-            return Err(TreasuryError::AssociatedAccountWrongMint.into());
-        }
+        let user_treasury = UserTreasury {
+            authority: *creator_info.key,
+        };
+        UserTreasury::pack(user_treasury, &mut treasury_info.data.borrow_mut())?;
 
-        if associated_account.amount < settings.launch_fee_user {
-            return Err(TreasuryError::NotEnoughZEE.into());
-        }
-
-        let seed =
-            UserTreasury::verify_program_key(treasury_info.key, creator_info.key, program_id)?;
+        invoke(
+            &spl_token::instruction::transfer(
+                &spl_token::id(),
+                creator_associated_info.key,
+                fee_recipient_info.key,
+                creator_info.key,
+                &[],
+                settings.launch_fee_user,
+            )?,
+            &[
+                creator_associated_info.clone(),
+                fee_recipient_info.clone(),
+                creator_info.clone(),
+            ],
+        )?;
 
         Ok(())
     }

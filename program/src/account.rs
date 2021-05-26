@@ -13,6 +13,7 @@ use solana_program::{
     msg,
     program_pack::{Pack, Sealed},
 };
+use spl_token::state::{Account as SPLAccount, Mint};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -60,6 +61,53 @@ impl Settings {
             &[funder_info.clone(), settings_info.clone()],
             &[&[b"settings", &[seed]]],
         )
+    }
+
+    pub fn verify_fee_recipient(&self, key: &Pubkey) -> Result<(), ProgramError> {
+        match self.fee_recipient == *key {
+            true => Ok(()),
+            false => Err(TreasuryError::InvalidFeeRecipient.into()),
+        }
+    }
+
+    pub fn verify_price_authority(
+        &self,
+        price_authority_info: &AccountInfo,
+    ) -> Result<(), ProgramError> {
+        if !price_authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
+        match self.price_authority == *price_authority_info.key {
+            true => Ok(()),
+            false => Err(TreasuryError::InvalidPriceAuthority.into()),
+        }
+    }
+
+    pub fn verify_token_and_fee_payer(
+        &self,
+        mint_info: &AccountInfo,
+        owner: &AccountInfo,
+        associated_account: &AccountInfo,
+        fee: u64,
+    ) -> Result<(Mint, SPLAccount), ProgramError> {
+        let mint =
+            Mint::unpack(&mint_info.data.borrow()).map_err(|_| TreasuryError::MintInvalid)?;
+
+        let associated_account = SPLAccount::unpack(&associated_account.data.borrow())?;
+        if associated_account.owner != *owner.key {
+            return Err(TreasuryError::AssociatedAccountInvalid.into());
+        }
+
+        if associated_account.mint != *mint_info.key {
+            return Err(TreasuryError::AssociatedAccountWrongMint.into());
+        }
+
+        if fee > 0 && associated_account.amount < fee {
+            return Err(TreasuryError::NotEnoughZEE.into());
+        }
+
+        Ok((mint, associated_account))
     }
 }
 
@@ -124,6 +172,30 @@ impl UserTreasury {
             return Err(TreasuryError::InvalidUserTreasuryKey.into());
         }
         Ok(seed)
+    }
+
+    pub fn create_account<'a>(
+        funder_info: &AccountInfo<'a>,
+        treasury_info: &AccountInfo<'a>,
+        creator_info: &AccountInfo<'a>,
+        rent: solana_program::rent::Rent,
+        program_id: &Pubkey,
+    ) -> ProgramResult {
+        let seed =
+            UserTreasury::verify_program_key(treasury_info.key, creator_info.key, program_id)?;
+        let lamports = rent.minimum_balance(UserTreasury::LEN);
+        let space = UserTreasury::LEN as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                treasury_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), treasury_info.clone()],
+            &[&[b"user", &creator_info.key.to_bytes(), &[seed]]],
+        )
     }
 }
 

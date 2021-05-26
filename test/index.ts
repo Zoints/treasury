@@ -32,6 +32,8 @@ const mint_authority = new Keypair();
 const deploy_key = new Keypair();
 const programId = deploy_key.publicKey;
 
+const user_1 = new Keypair();
+
 (async () => {
     console.log(`Funding ${funder.publicKey.toBase58()} with 20 SOL`);
     let sig = await connection.requestAirdrop(
@@ -40,10 +42,11 @@ const programId = deploy_key.publicKey;
     );
     await connection.confirmTransaction(sig);
 
-    await connection.requestAirdrop(
+    // it's not necessary for this account to exist to make an associated address for it
+    /*await connection.requestAirdrop(
         fee_authority.publicKey,
         1 * LAMPORTS_PER_SOL
-    );
+    );*/
 
     console.log(`Deploy BPF to ${deploy_key.publicKey.toBase58()}`);
     const programdata = fs.readFileSync('../program/target/deploy/treasury.so');
@@ -144,6 +147,18 @@ const programId = deploy_key.publicKey;
         fee_authority
     ]);
     console.log(`Initialized: ${sig}`);
+
+    const user_1_associated = await token.createAssociatedTokenAccount(
+        fee_authority.publicKey
+    );
+    await token.mintTo(
+        user_1_associated,
+        new Account(mint_authority.secretKey),
+        [],
+        1_000
+    );
+
+    // launch user treasury
 })();
 
 export function sleep(ms: number) {
