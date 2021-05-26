@@ -12,7 +12,7 @@ use std::mem::size_of;
 pub enum TreasuryInstruction {
     Initialize { fee_user: u64, fee_zoints: u64 },
     CreateUserTreasury,
-    CreateCommunityTreasury { name: Vec<u8> },
+    CreateZointsTreasury { name: Vec<u8> },
 }
 
 impl TreasuryInstruction {
@@ -45,7 +45,7 @@ impl TreasuryInstruction {
             1 => TreasuryInstruction::CreateUserTreasury,
             2 => {
                 let (name, _rest) = unpack_vec(rest)?;
-                TreasuryInstruction::CreateCommunityTreasury { name }
+                TreasuryInstruction::CreateZointsTreasury { name }
             }
             _ => return Err(InvalidInstruction.into()),
         })
@@ -63,7 +63,7 @@ impl TreasuryInstruction {
                 buf.extend_from_slice(&fee_zoints.to_le_bytes());
             }
             TreasuryInstruction::CreateUserTreasury => buf.push(1),
-            TreasuryInstruction::CreateCommunityTreasury { name } => {
+            TreasuryInstruction::CreateZointsTreasury { name } => {
                 buf.push(2);
                 pack_vec(&name, &mut buf);
             }

@@ -15,7 +15,7 @@ use solana_program::{
 use spl_token::state::{Account, Mint};
 
 use crate::{
-    account::{Settings, UserCommunity, ZointsCommunity},
+    account::{Settings, UserTreasury, ZointsTreasury},
     error::TreasuryError,
     instruction::TreasuryInstruction,
 };
@@ -35,8 +35,8 @@ impl Processor {
                 msg!("Instruction :: CreateUserTreasury");
                 Self::process_create_user_treasury(program_id, accounts)
             }
-            TreasuryInstruction::CreateCommunityTreasury { name } => {
-                msg!("Instruction :: CreateCommunityTreasury");
+            TreasuryInstruction::CreateZointsTreasury { name } => {
+                msg!("Instruction :: CreateZointsTreasury");
                 Self::process_create_zoints_treasury(program_id, accounts, name)
             }
         }
@@ -68,13 +68,13 @@ impl Processor {
         let _ = Mint::unpack(&token_info.data.borrow_mut())
             .map_err(|_| TreasuryError::TokenNotSPLToken)?;
 
-        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())?;
+        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
+            .map_err(|_| TreasuryError::AssociatedAccountInvalid)?;
         if fee_recipient.mint != *token_info.key {
             return Err(TreasuryError::AssociatedAccountWrongMint.into());
         }
 
-        Settings::verify_program_key(settings_info.key, program_id)?;
-
+        // verifies correctness of settings_info
         Settings::create_account(funder_info, settings_info, rent, program_id)?;
 
         let settings = Settings {
@@ -98,9 +98,10 @@ impl Processor {
         let funder_info = next_account_info(iter)?;
         let creator_info = next_account_info(iter)?;
         let creator_associated_info = next_account_info(iter)?;
-        let community_info = next_account_info(iter)?;
+        let treasury_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
+        let fee_recipient_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
 
@@ -124,12 +125,12 @@ impl Processor {
             return Err(TreasuryError::AssociatedAccountWrongMint.into());
         }
 
-        if associated_account.amount < UserCommunity::FEE {
+        if associated_account.amount < settings.launch_fee_user {
             return Err(TreasuryError::NotEnoughZEE.into());
         }
 
         let seed =
-            UserCommunity::verify_program_key(community_info.key, creator_info.key, program_id)?;
+            UserTreasury::verify_program_key(treasury_info.key, creator_info.key, program_id)?;
 
         Ok(())
     }
@@ -138,7 +139,7 @@ impl Processor {
         accounts: &[AccountInfo],
         name: Vec<u8>,
     ) -> ProgramResult {
-        ZointsCommunity::valid_name(&name)?;
+        ZointsTreasury::valid_name(&name)?;
 
         Ok(())
     }

@@ -46,8 +46,7 @@ impl Settings {
         rent: solana_program::rent::Rent,
         program_id: &Pubkey,
     ) -> ProgramResult {
-        let (_, seed) = Settings::program_address(program_id);
-
+        let seed = Settings::verify_program_key(settings_info.key, program_id)?;
         let lamports = rent.minimum_balance(Settings::LEN);
         let space = Settings::LEN as u64;
         invoke_signed(
@@ -103,14 +102,13 @@ impl Pack for Settings {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct UserCommunity {
+pub struct UserTreasury {
     pub authority: Pubkey,
 }
 
-impl Sealed for UserCommunity {}
+impl Sealed for UserTreasury {}
 
-impl UserCommunity {
-    pub const FEE: u64 = 1_000;
+impl UserTreasury {
     pub fn program_address(user: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"user", &user.to_bytes()], program_id)
     }
@@ -123,38 +121,37 @@ impl UserCommunity {
         let (derived_key, seed) = Self::program_address(user, program_id);
         if *key != derived_key {
             msg!("invalid user community account");
-            return Err(TreasuryError::InvalidUserCommunityKey.into());
+            return Err(TreasuryError::InvalidUserTreasuryKey.into());
         }
         Ok(seed)
     }
 }
 
-impl Pack for UserCommunity {
+impl Pack for UserTreasury {
     const LEN: usize = 32;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, UserCommunity::LEN];
+        let src = array_ref![src, 0, UserTreasury::LEN];
 
         let authority = Pubkey::new(src);
 
-        Ok(UserCommunity { authority })
+        Ok(UserTreasury { authority })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let authority_dst = array_mut_ref![dst, 0, UserCommunity::LEN];
+        let authority_dst = array_mut_ref![dst, 0, UserTreasury::LEN];
         *authority_dst = self.authority.to_bytes();
     }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct ZointsCommunity {
+pub struct ZointsTreasury {
     pub authority: Pubkey,
 }
 
-impl Sealed for ZointsCommunity {}
+impl Sealed for ZointsTreasury {}
 
-impl ZointsCommunity {
-    pub const FEE: u64 = 5_000;
+impl ZointsTreasury {
     pub fn program_address(name: &Vec<u8>, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"zoints", name], program_id)
     }
@@ -167,7 +164,7 @@ impl ZointsCommunity {
         let (derived_key, seed) = Self::program_address(name, program_id);
         if *key != derived_key {
             msg!("invalid zoints community account");
-            return Err(TreasuryError::InvalidZointsCommunityKey.into());
+            return Err(TreasuryError::InvalidZointsTreasuryKey.into());
         }
         Ok(seed)
     }
@@ -181,31 +178,31 @@ impl ZointsCommunity {
 
     pub fn valid_name(name: &Vec<u8>) -> Result<(), ProgramError> {
         if name.len() < 1 {
-            return Err(TreasuryError::ZointsCommunityNameTooShort.into());
+            return Err(TreasuryError::ZointsTreasuryNameTooShort.into());
         }
         if name.len() > MAX_SEED_LEN {
-            return Err(TreasuryError::ZointsCommunityNameTooLong.into());
+            return Err(TreasuryError::ZointsTreasuryNameTooLong.into());
         }
 
-        match name.iter().all(|&n| ZointsCommunity::valid_character(n)) {
+        match name.iter().all(|&n| ZointsTreasury::valid_character(n)) {
             true => Ok(()),
-            false => Err(TreasuryError::ZointsCommunityNameInvalidCharacters.into()),
+            false => Err(TreasuryError::ZointsTreasuryNameInvalidCharacters.into()),
         }
     }
 }
 
-impl Pack for ZointsCommunity {
+impl Pack for ZointsTreasury {
     const LEN: usize = 32;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, ZointsCommunity::LEN];
+        let src = array_ref![src, 0, ZointsTreasury::LEN];
 
         let authority = Pubkey::new(src);
 
-        Ok(ZointsCommunity { authority })
+        Ok(ZointsTreasury { authority })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let authority_dst = array_mut_ref![dst, 0, ZointsCommunity::LEN];
+        let authority_dst = array_mut_ref![dst, 0, ZointsTreasury::LEN];
         *authority_dst = self.authority.to_bytes();
     }
 }
@@ -221,39 +218,36 @@ mod tests {
     #[test]
     pub fn test_verify_name() {
         assert_eq!(
-            ZointsCommunity::valid_name(&b"".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameTooShort)
+            ZointsTreasury::valid_name(&b"".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameTooShort)
         );
         assert_eq!(
-            ZointsCommunity::valid_name(&b"000000000000000000000000000000001".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameTooLong)
+            ZointsTreasury::valid_name(&b"000000000000000000000000000000001".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameTooLong)
         );
-        assert_eq!(ZointsCommunity::valid_name(&b"a".to_vec()), Ok(()));
+        assert_eq!(ZointsTreasury::valid_name(&b"a".to_vec()), Ok(()));
 
         assert_eq!(
-            ZointsCommunity::valid_name(&b"00000000000000000000000000000000".to_vec()),
+            ZointsTreasury::valid_name(&b"00000000000000000000000000000000".to_vec()),
             Ok(())
         );
-        assert_eq!(ZointsCommunity::valid_name(&b"valid_name".to_vec()), Ok(()));
+        assert_eq!(ZointsTreasury::valid_name(&b"valid_name".to_vec()), Ok(()));
+        assert_eq!(ZointsTreasury::valid_name(&b"aAzZ09-_.()".to_vec()), Ok(()));
         assert_eq!(
-            ZointsCommunity::valid_name(&b"aAzZ09-_.()".to_vec()),
-            Ok(())
+            ZointsTreasury::valid_name(&b"invalid name".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
         );
         assert_eq!(
-            ZointsCommunity::valid_name(&b"invalid name".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+            ZointsTreasury::valid_name(&b"%".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
         );
         assert_eq!(
-            ZointsCommunity::valid_name(&b"%".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+            ZointsTreasury::valid_name(&b"%20".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
         );
         assert_eq!(
-            ZointsCommunity::valid_name(&b"%20".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
-        );
-        assert_eq!(
-            ZointsCommunity::valid_name(&b"random{word".to_vec()),
-            cast_error(TreasuryError::ZointsCommunityNameInvalidCharacters)
+            ZointsTreasury::valid_name(&b"random{word".to_vec()),
+            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
         );
     }
 }
