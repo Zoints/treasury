@@ -1,7 +1,6 @@
 use crate::error::TreasuryError;
 use arrayref::{array_mut_ref, array_ref};
 use arrayref::{array_refs, mut_array_refs};
-use solana_program::account_info::Account;
 use solana_program::account_info::AccountInfo;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::program::invoke_signed;

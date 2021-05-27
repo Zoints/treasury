@@ -2,8 +2,6 @@ use crate::error::TreasuryError;
 use arrayref::array_ref;
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
-use solana_program::pubkey::Pubkey;
-use solana_program::pubkey::PUBKEY_BYTES;
 use std::convert::TryInto;
 use std::mem::size_of;
 
@@ -30,7 +28,7 @@ impl TreasuryInstruction {
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
 
-                let (fee_zoints, rest) = rest.split_at(8);
+                let (fee_zoints, _rest) = rest.split_at(8);
                 let fee_zoints = fee_zoints
                     .try_into()
                     .ok()

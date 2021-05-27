@@ -1,15 +1,11 @@
-use arrayref::{array_ref, array_refs};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::{invoke, invoke_signed},
-    program_error::ProgramError,
-    program_option::COption,
-    program_pack::{IsInitialized, Pack},
-    pubkey::{Pubkey, MAX_SEED_LEN},
-    system_instruction,
-    sysvar::{self, clock::Clock, rent::Rent, slot_hashes::SlotHashes, Sysvar, SysvarId},
+    program::invoke,
+    program_pack::Pack,
+    pubkey::Pubkey,
+    sysvar::{rent::Rent, Sysvar},
 };
 
 use spl_token::state::{Account, Mint};
@@ -150,6 +146,7 @@ impl Processor {
 
         Ok(())
     }
+
     pub fn process_create_zoints_treasury(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
