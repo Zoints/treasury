@@ -125,22 +125,28 @@ impl Processor {
             settings.launch_fee_user,
         )?;
 
-        UserTreasury::create_account(
-            funder_info,
-            treasury_info,
-            treasury_associated_info,
-            mint_info,
-            creator_info,
-            rent_info,
-            spl_token_info,
-            rent,
-            program_id,
-        )?;
+        UserTreasury::create_account(funder_info, treasury_info, creator_info, rent, program_id)?;
 
         let user_treasury = UserTreasury {
             authority: *creator_info.key,
         };
         UserTreasury::pack(user_treasury, &mut treasury_info.data.borrow_mut())?;
+
+        invoke(
+            &spl_associated_token_account::create_associated_token_account(
+                funder_info.key,
+                treasury_info.key,
+                mint_info.key,
+            ),
+            &[
+                funder_info.clone(),
+                treasury_info.clone(),
+                treasury_associated_info.clone(),
+                mint_info.clone(),
+                rent_info.clone(),
+                spl_token_info.clone(),
+            ],
+        )?;
 
         invoke(
             &spl_token::instruction::transfer(
