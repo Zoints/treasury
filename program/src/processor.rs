@@ -102,6 +102,10 @@ impl Processor {
         let rent = Rent::from_account_info(rent_info)?;
         let spl_token_info = next_account_info(iter)?;
 
+        if treasury_info.data_len() > 0 {
+            return Err(TreasuryError::UserTreasuryExists.into());
+        }
+
         if !creator_info.is_signer {
             return Err(TreasuryError::MissingCreatorSignature.into());
         }
@@ -136,7 +140,7 @@ impl Processor {
                 settings.launch_fee_user,
             )?,
             &[
-                funder_info.clone(),
+                //funder_info.clone(), needed??
                 creator_associated_info.clone(),
                 fee_recipient_info.clone(),
                 creator_info.clone(),
@@ -152,7 +156,65 @@ impl Processor {
         accounts: &[AccountInfo],
         name: Vec<u8>,
     ) -> ProgramResult {
+        let iter = &mut accounts.iter();
+        let funder_info = next_account_info(iter)?;
+        let creator_info = next_account_info(iter)?;
+        let creator_associated_info = next_account_info(iter)?;
+        let treasury_info = next_account_info(iter)?;
+        let mint_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let fee_recipient_info = next_account_info(iter)?;
+        let rent_info = next_account_info(iter)?;
+        let rent = Rent::from_account_info(rent_info)?;
+        let spl_token_info = next_account_info(iter)?;
+
         ZointsTreasury::valid_name(&name)?;
+
+        if treasury_info.data_len() > 0 {
+            return Err(TreasuryError::ZointsTreasuryExists.into());
+        }
+
+        if !creator_info.is_signer {
+            return Err(TreasuryError::MissingCreatorSignature.into());
+        }
+
+        let settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        if settings.token != *mint_info.key {
+            return Err(TreasuryError::MintWrongToken.into());
+        }
+        settings.verify_fee_recipient(fee_recipient_info.key)?;
+
+        let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
+            mint_info,
+            creator_info,
+            creator_associated_info,
+            settings.launch_fee_user,
+        )?;
+
+        ZointsTreasury::create_account(funder_info, treasury_info, &name, rent, program_id)?;
+
+        let user_treasury = ZointsTreasury {
+            authority: *creator_info.key,
+        };
+        ZointsTreasury::pack(user_treasury, &mut treasury_info.data.borrow_mut())?;
+
+        invoke(
+            &spl_token::instruction::transfer(
+                &spl_token::id(),
+                creator_associated_info.key,
+                fee_recipient_info.key,
+                creator_info.key,
+                &[],
+                settings.launch_fee_user,
+            )?,
+            &[
+                //funder_info.clone(), needed??
+                creator_associated_info.clone(),
+                fee_recipient_info.clone(),
+                creator_info.clone(),
+                spl_token_info.clone(),
+            ],
+        )?;
 
         Ok(())
     }

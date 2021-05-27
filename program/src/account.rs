@@ -260,6 +260,29 @@ impl ZointsTreasury {
             false => Err(TreasuryError::ZointsTreasuryNameInvalidCharacters.into()),
         }
     }
+
+    pub fn create_account<'a>(
+        funder_info: &AccountInfo<'a>,
+        treasury_info: &AccountInfo<'a>,
+        name: &Vec<u8>,
+        rent: solana_program::rent::Rent,
+        program_id: &Pubkey,
+    ) -> ProgramResult {
+        let seed = ZointsTreasury::verify_program_key(treasury_info.key, name, program_id)?;
+        let lamports = rent.minimum_balance(ZointsTreasury::LEN);
+        let space = ZointsTreasury::LEN as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                treasury_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), treasury_info.clone()],
+            &[&[b"zoints", name, &[seed]]],
+        )
+    }
 }
 
 impl Pack for ZointsTreasury {

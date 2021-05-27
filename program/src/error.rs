@@ -22,9 +22,15 @@ pub enum TreasuryError {
     /// Invalid User Treasury Key
     #[error("Invalid User Treasury Key")]
     InvalidUserTreasuryKey,
+    /// User Treasury Already Exists
+    #[error("User Treasury Already Exists")]
+    UserTreasuryExists,
     /// Invalid Zoints Treasury Key
     #[error("Invalid Zoints Treasury Key")]
     InvalidZointsTreasuryKey,
+    /// Zoints Treasury Already Exists
+    #[error("Zoints Treasury Already Exists")]
+    ZointsTreasuryExists,
     /// Name is too short (at least 1 character)
     #[error("Name is too short (at least 1 character)")]
     ZointsTreasuryNameTooShort,
