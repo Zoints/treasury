@@ -104,6 +104,7 @@ impl Processor {
         let fee_recipient_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
+        let spl_token_info = next_account_info(iter)?;
 
         if !creator_info.is_signer {
             return Err(TreasuryError::MissingCreatorSignature.into());
@@ -139,9 +140,11 @@ impl Processor {
                 settings.launch_fee_user,
             )?,
             &[
+                funder_info.clone(),
                 creator_associated_info.clone(),
                 fee_recipient_info.clone(),
                 creator_info.clone(),
+                spl_token_info.clone(),
             ],
         )?;
 

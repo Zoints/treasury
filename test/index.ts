@@ -113,7 +113,8 @@ const user_1 = new Keypair();
         programId
     );
 
-    /*
+    await (async () => {
+        /*
         let funder_info = next_account_info(iter)?;
         let token_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
@@ -121,35 +122,44 @@ const user_1 = new Keypair();
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         */
-    const keys: AccountMeta[] = [
-        { pubkey: funder.publicKey, isSigner: true, isWritable: false },
-        { pubkey: token_id.publicKey, isSigner: false, isWritable: true },
-        { pubkey: fee_authority.publicKey, isSigner: true, isWritable: false },
-        { pubkey: fee_recipient, isSigner: false, isWritable: false },
-        { pubkey: settings_id[0], isSigner: false, isWritable: true },
-        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-    ];
-    const data = Buffer.alloc(1 + 8 + 8, 0);
-    data.writeBigUInt64LE(1_000n, 1); // user fee
-    data.writeBigUInt64LE(5_000n, 9); // zoints fee
+        const keys: AccountMeta[] = [
+            { pubkey: funder.publicKey, isSigner: true, isWritable: false },
+            { pubkey: token_id.publicKey, isSigner: false, isWritable: true },
+            {
+                pubkey: fee_authority.publicKey,
+                isSigner: true,
+                isWritable: false
+            },
+            { pubkey: fee_recipient, isSigner: false, isWritable: false },
+            { pubkey: settings_id[0], isSigner: false, isWritable: true },
+            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+            {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false
+            }
+        ];
+        const data = Buffer.alloc(1 + 8 + 8, 0);
+        data.writeBigUInt64LE(1_000n, 1); // user fee
+        data.writeBigUInt64LE(5_000n, 9); // zoints fee
 
-    const t = new Transaction().add(
-        new TransactionInstruction({
-            keys,
-            programId,
-            data
-        })
-    );
+        const t = new Transaction().add(
+            new TransactionInstruction({
+                keys,
+                programId,
+                data
+            })
+        );
 
-    sig = await sendAndConfirmTransaction(connection, t, [
-        funder,
-        fee_authority
-    ]);
-    console.log(`Initialized: ${sig}`);
+        sig = await sendAndConfirmTransaction(connection, t, [
+            funder,
+            fee_authority
+        ]);
+        console.log(`Initialized: ${sig}`);
+    })();
 
     const user_1_associated = await token.createAssociatedTokenAccount(
-        fee_authority.publicKey
+        user_1.publicKey
     );
     await token.mintTo(
         user_1_associated,
@@ -158,7 +168,90 @@ const user_1 = new Keypair();
         1_000
     );
 
+    const user_1_treasury = await PublicKey.findProgramAddress(
+        [Buffer.from('user'), user_1.publicKey.toBuffer()],
+        programId
+    );
     // launch user treasury
+    await (async () => {
+        /*
+            let iter = &mut accounts.iter();
+        let funder_info = next_account_info(iter)?;
+        let creator_info = next_account_info(iter)?;
+        let creator_associated_info = next_account_info(iter)?;
+        let treasury_info = next_account_info(iter)?;
+        let mint_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let fee_recipient_info = next_account_info(iter)?;
+        let rent_info = next_account_info(iter)?;
+        let rent = Rent::from_account_info(rent_info)?;
+        */
+
+        const keys: AccountMeta[] = [
+            {
+                pubkey: funder.publicKey,
+                isSigner: true,
+                isWritable: true
+            },
+            {
+                pubkey: user_1.publicKey,
+                isSigner: true,
+                isWritable: true
+            },
+            {
+                pubkey: user_1_associated,
+                isSigner: false,
+                isWritable: true
+            },
+            {
+                pubkey: user_1_treasury[0],
+                isSigner: false,
+                isWritable: true
+            },
+            {
+                pubkey: token_id.publicKey,
+                isSigner: false,
+                isWritable: false
+            },
+            {
+                pubkey: settings_id[0],
+                isSigner: false,
+                isWritable: false
+            },
+            {
+                pubkey: fee_recipient,
+                isSigner: false,
+                isWritable: true
+            },
+            {
+                pubkey: SYSVAR_RENT_PUBKEY,
+                isSigner: false,
+                isWritable: false
+            },
+            {
+                pubkey: TOKEN_PROGRAM_ID,
+                isSigner: false,
+                isWritable: false
+            },
+            {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false
+            }
+        ];
+        const data = Buffer.alloc(1, 1);
+
+        const t = new Transaction().add(
+            new TransactionInstruction({
+                keys,
+                programId,
+                data
+            })
+        );
+
+        sig = await sendAndConfirmTransaction(connection, t, [funder, user_1]);
+        console.log(`User Treasury launched: ${sig}`);
+    })();
 })();
 
 export function sleep(ms: number) {
