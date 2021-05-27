@@ -273,7 +273,7 @@ const zoints_1_keyword = Buffer.from('test-community');
         sig = await sendAndConfirmTransaction(connection, t, [funder, user_1]);
         console.log(`User Treasury launched: ${sig}`);
     })();
-
+    /*
     const zoints_1_associated = await token.createAssociatedTokenAccount(
         zoints_1.publicKey
     );
@@ -290,18 +290,6 @@ const zoints_1_keyword = Buffer.from('test-community');
     );
 
     await (async () => {
-        /*
-            let iter = &mut accounts.iter();
-        let funder_info = next_account_info(iter)?;
-        let creator_info = next_account_info(iter)?;
-        let creator_associated_info = next_account_info(iter)?;
-        let treasury_info = next_account_info(iter)?;
-        let mint_info = next_account_info(iter)?;
-        let settings_info = next_account_info(iter)?;
-        let fee_recipient_info = next_account_info(iter)?;
-        let rent_info = next_account_info(iter)?;
-        let rent = Rent::from_account_info(rent_info)?;
-        */
 
         const keys: AccountMeta[] = [
             {
@@ -373,7 +361,7 @@ const zoints_1_keyword = Buffer.from('test-community');
             zoints_1
         ]);
         console.log(`Zoints Treasury launched: ${sig}`);
-    })();
+    })();*/
 })();
 
 export function sleep(ms: number) {
