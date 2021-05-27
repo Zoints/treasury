@@ -95,6 +95,7 @@ impl Processor {
         let creator_info = next_account_info(iter)?;
         let creator_associated_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
+        let treasury_associated_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let fee_recipient_info = next_account_info(iter)?;
@@ -115,6 +116,7 @@ impl Processor {
             return Err(TreasuryError::MintWrongToken.into());
         }
         settings.verify_fee_recipient(fee_recipient_info.key)?;
+        settings.verify_treasury_associated_account(treasury_info, treasury_associated_info)?;
 
         let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
             mint_info,
@@ -123,7 +125,17 @@ impl Processor {
             settings.launch_fee_user,
         )?;
 
-        UserTreasury::create_account(funder_info, treasury_info, creator_info, rent, program_id)?;
+        UserTreasury::create_account(
+            funder_info,
+            treasury_info,
+            treasury_associated_info,
+            mint_info,
+            creator_info,
+            rent_info,
+            spl_token_info,
+            rent,
+            program_id,
+        )?;
 
         let user_treasury = UserTreasury {
             authority: *creator_info.key,
@@ -161,6 +173,7 @@ impl Processor {
         let creator_info = next_account_info(iter)?;
         let creator_associated_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
+        let treasury_associated_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let fee_recipient_info = next_account_info(iter)?;
@@ -183,6 +196,7 @@ impl Processor {
             return Err(TreasuryError::MintWrongToken.into());
         }
         settings.verify_fee_recipient(fee_recipient_info.key)?;
+        settings.verify_treasury_associated_account(treasury_info, treasury_associated_info)?;
 
         let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
             mint_info,

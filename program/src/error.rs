@@ -49,6 +49,9 @@ pub enum TreasuryError {
     /// Associated account is invalid
     #[error("Associated account is invalid")]
     AssociatedAccountInvalid,
+    /// Treasury associated account is invalid
+    #[error("Treasury associated account is invalid")]
+    TreasuryAssociatedAccountInvalid,
     /// Associated account is for the wrong Mint
     #[error("Associated account is for the wrong Mint")]
     AssociatedAccountWrongMint,

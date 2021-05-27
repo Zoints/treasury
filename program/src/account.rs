@@ -3,7 +3,7 @@ use arrayref::{array_mut_ref, array_ref};
 use arrayref::{array_refs, mut_array_refs};
 use solana_program::account_info::AccountInfo;
 use solana_program::entrypoint::ProgramResult;
-use solana_program::program::invoke_signed;
+use solana_program::program::{invoke, invoke_signed};
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
 use solana_program::pubkey::MAX_SEED_LEN;
@@ -108,6 +108,23 @@ impl Settings {
 
         Ok((mint, associated_account))
     }
+
+    pub fn verify_treasury_associated_account(
+        &self,
+        treasury_info: &AccountInfo,
+        associated_info: &AccountInfo,
+    ) -> Result<(), ProgramError> {
+        let derived = spl_associated_token_account::get_associated_token_address(
+            treasury_info.key,
+            &self.token,
+        );
+
+        if derived != *associated_info.key {
+            return Err(TreasuryError::TreasuryAssociatedAccountInvalid.into());
+        }
+
+        Ok(())
+    }
 }
 
 impl Pack for Settings {
@@ -176,7 +193,11 @@ impl UserTreasury {
     pub fn create_account<'a>(
         funder_info: &AccountInfo<'a>,
         treasury_info: &AccountInfo<'a>,
+        treasury_associated_info: &AccountInfo<'a>,
+        mint_info: &AccountInfo<'a>,
         creator_info: &AccountInfo<'a>,
+        rent_info: &AccountInfo<'a>,
+        token_program_info: &AccountInfo<'a>,
         rent: solana_program::rent::Rent,
         program_id: &Pubkey,
     ) -> ProgramResult {
@@ -194,6 +215,21 @@ impl UserTreasury {
             ),
             &[funder_info.clone(), treasury_info.clone()],
             &[&[b"user", &creator_info.key.to_bytes(), &[seed]]],
+        )?;
+        invoke(
+            &spl_associated_token_account::create_associated_token_account(
+                funder_info.key,
+                treasury_info.key,
+                mint_info.key,
+            ),
+            &[
+                funder_info.clone(),
+                treasury_info.clone(),
+                treasury_associated_info.clone(),
+                mint_info.clone(),
+                rent_info.clone(),
+                token_program_info.clone(),
+            ],
         )
     }
 }

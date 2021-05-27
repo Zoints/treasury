@@ -174,6 +174,15 @@ const zoints_1_keyword = Buffer.from('test-community');
         [Buffer.from('user'), user_1.publicKey.toBuffer()],
         programId
     );
+    const user_1_treasury_associated = await PublicKey.findProgramAddress(
+        [
+            user_1_treasury[0].toBuffer(),
+            TOKEN_PROGRAM_ID.toBuffer(),
+            token_id.publicKey.toBuffer()
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
     // launch user treasury
     await (async () => {
         /*
@@ -211,6 +220,11 @@ const zoints_1_keyword = Buffer.from('test-community');
                 isWritable: true
             },
             {
+                pubkey: user_1_treasury_associated[0],
+                isSigner: false,
+                isWritable: true
+            },
+            {
                 pubkey: token_id.publicKey,
                 isSigner: false,
                 isWritable: false
@@ -232,6 +246,11 @@ const zoints_1_keyword = Buffer.from('test-community');
             },
             {
                 pubkey: TOKEN_PROGRAM_ID,
+                isSigner: false,
+                isWritable: false
+            },
+            {
+                pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
                 isSigner: false,
                 isWritable: false
             },
