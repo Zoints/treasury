@@ -220,11 +220,6 @@ const zoints_1_keyword = Buffer.from('test-community');
                 isWritable: true
             },
             {
-                pubkey: user_1_treasury_associated[0],
-                isSigner: false,
-                isWritable: true
-            },
-            {
                 pubkey: token_id.publicKey,
                 isSigner: false,
                 isWritable: false
@@ -262,18 +257,29 @@ const zoints_1_keyword = Buffer.from('test-community');
         ];
         const data = Buffer.alloc(1, 1);
 
-        const t = new Transaction().add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        );
+        const t = new Transaction()
+            .add(
+                new TransactionInstruction({
+                    keys,
+                    programId,
+                    data
+                })
+            )
+            .add(
+                Token.createAssociatedTokenAccountInstruction(
+                    ASSOCIATED_TOKEN_PROGRAM_ID,
+                    TOKEN_PROGRAM_ID,
+                    token_id.publicKey,
+                    user_1_treasury_associated[0],
+                    user_1_treasury[0],
+                    funder.publicKey
+                )
+            );
 
         sig = await sendAndConfirmTransaction(connection, t, [funder, user_1]);
         console.log(`User Treasury launched: ${sig}`);
     })();
-    /*
+
     const zoints_1_associated = await token.createAssociatedTokenAccount(
         zoints_1.publicKey
     );
@@ -289,8 +295,16 @@ const zoints_1_keyword = Buffer.from('test-community');
         programId
     );
 
-    await (async () => {
+    const zoints_1_treasury_associated = await PublicKey.findProgramAddress(
+        [
+            zoints_1_treasury[0].toBuffer(),
+            TOKEN_PROGRAM_ID.toBuffer(),
+            token_id.publicKey.toBuffer()
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+    );
 
+    await (async () => {
         const keys: AccountMeta[] = [
             {
                 pubkey: funder.publicKey,
@@ -348,20 +362,31 @@ const zoints_1_keyword = Buffer.from('test-community');
         prefix.writeUInt16LE(zoints_1_keyword.length, 1);
         const data = Buffer.concat([prefix, zoints_1_keyword]);
 
-        const t = new Transaction().add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        );
+        const t = new Transaction()
+            .add(
+                new TransactionInstruction({
+                    keys,
+                    programId,
+                    data
+                })
+            )
+            .add(
+                Token.createAssociatedTokenAccountInstruction(
+                    ASSOCIATED_TOKEN_PROGRAM_ID,
+                    TOKEN_PROGRAM_ID,
+                    token_id.publicKey,
+                    zoints_1_treasury_associated[0],
+                    zoints_1_treasury[0],
+                    funder.publicKey
+                )
+            );
 
         sig = await sendAndConfirmTransaction(connection, t, [
             funder,
             zoints_1
         ]);
         console.log(`Zoints Treasury launched: ${sig}`);
-    })();*/
+    })();
 })();
 
 export function sleep(ms: number) {

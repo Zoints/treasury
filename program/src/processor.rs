@@ -95,7 +95,6 @@ impl Processor {
         let creator_info = next_account_info(iter)?;
         let creator_associated_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let treasury_associated_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let fee_recipient_info = next_account_info(iter)?;
@@ -116,7 +115,6 @@ impl Processor {
             return Err(TreasuryError::MintWrongToken.into());
         }
         settings.verify_fee_recipient(fee_recipient_info.key)?;
-        settings.verify_treasury_associated_account(treasury_info, treasury_associated_info)?;
 
         let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
             mint_info,
@@ -126,27 +124,6 @@ impl Processor {
         )?;
 
         UserTreasury::create_account(funder_info, treasury_info, creator_info, rent, program_id)?;
-
-        let user_treasury = UserTreasury {
-            authority: *creator_info.key,
-        };
-        UserTreasury::pack(user_treasury, &mut treasury_info.data.borrow_mut())?;
-
-        invoke(
-            &spl_associated_token_account::create_associated_token_account(
-                funder_info.key,
-                treasury_info.key,
-                mint_info.key,
-            ),
-            &[
-                funder_info.clone(),
-                treasury_info.clone(),
-                treasury_associated_info.clone(),
-                mint_info.clone(),
-                rent_info.clone(),
-                spl_token_info.clone(),
-            ],
-        )?;
 
         invoke(
             &spl_token::instruction::transfer(
@@ -158,15 +135,12 @@ impl Processor {
                 settings.launch_fee_user,
             )?,
             &[
-                //funder_info.clone(), needed??
                 creator_associated_info.clone(),
                 fee_recipient_info.clone(),
                 creator_info.clone(),
                 spl_token_info.clone(),
             ],
-        )?;
-
-        Ok(())
+        )
     }
 
     pub fn process_create_zoints_treasury(
@@ -179,7 +153,6 @@ impl Processor {
         let creator_info = next_account_info(iter)?;
         let creator_associated_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let treasury_associated_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let fee_recipient_info = next_account_info(iter)?;
@@ -202,7 +175,6 @@ impl Processor {
             return Err(TreasuryError::MintWrongToken.into());
         }
         settings.verify_fee_recipient(fee_recipient_info.key)?;
-        settings.verify_treasury_associated_account(treasury_info, treasury_associated_info)?;
 
         let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
             mint_info,
@@ -211,12 +183,14 @@ impl Processor {
             settings.launch_fee_user,
         )?;
 
-        ZointsTreasury::create_account(funder_info, treasury_info, &name, rent, program_id)?;
-
-        let user_treasury = ZointsTreasury {
-            authority: *creator_info.key,
-        };
-        ZointsTreasury::pack(user_treasury, &mut treasury_info.data.borrow_mut())?;
+        ZointsTreasury::create_account(
+            funder_info,
+            treasury_info,
+            &name,
+            creator_info,
+            rent,
+            program_id,
+        )?;
 
         invoke(
             &spl_token::instruction::transfer(
@@ -228,14 +202,11 @@ impl Processor {
                 settings.launch_fee_user,
             )?,
             &[
-                //funder_info.clone(), needed??
                 creator_associated_info.clone(),
                 fee_recipient_info.clone(),
                 creator_info.clone(),
                 spl_token_info.clone(),
             ],
-        )?;
-
-        Ok(())
+        )
     }
 }
