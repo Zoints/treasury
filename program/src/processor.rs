@@ -35,6 +35,13 @@ impl Processor {
                 msg!("Instruction :: CreateZointsTreasury");
                 Self::process_create_zoints_treasury(program_id, accounts, name)
             }
+            TreasuryInstruction::UpdateFees {
+                fee_user,
+                fee_zoints,
+            } => {
+                msg!("Instruction :: UpdateFees");
+                Self::process_update_fees(program_id, accounts, fee_user, fee_zoints)
+            }
         }
     }
 
@@ -86,6 +93,40 @@ impl Processor {
         Ok(())
     }
 
+    pub fn process_update_fees(
+        _program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        fee_user: u64,
+        fee_zoints: u64,
+    ) -> ProgramResult {
+        let iter = &mut accounts.iter();
+        let _funder_info = next_account_info(iter)?;
+        let authority_info = next_account_info(iter)?;
+        let fee_recipient_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+
+        if settings_info.data_len() == 0 {
+            return Err(TreasuryError::NotInitialized.into());
+        }
+
+        let mut settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        settings.verify_price_authority(authority_info)?;
+
+        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
+            .map_err(|_| TreasuryError::AssociatedAccountInvalid)?;
+        if fee_recipient.mint != settings.token {
+            return Err(TreasuryError::AssociatedAccountWrongMint.into());
+        }
+
+        settings.fee_recipient = *fee_recipient_info.key;
+        settings.launch_fee_user = fee_user;
+        settings.launch_fee_zoints = fee_zoints;
+
+        Settings::pack(settings, &mut settings_info.data.borrow_mut())?;
+
+        Ok(())
+    }
+
     pub fn process_create_user_treasury(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -101,6 +142,10 @@ impl Processor {
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
         let spl_token_info = next_account_info(iter)?;
+
+        if settings_info.data_len() == 0 {
+            return Err(TreasuryError::NotInitialized.into());
+        }
 
         if treasury_info.data_len() > 0 {
             return Err(TreasuryError::UserTreasuryExists.into());
@@ -159,6 +204,10 @@ impl Processor {
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
         let spl_token_info = next_account_info(iter)?;
+
+        if settings_info.data_len() == 0 {
+            return Err(TreasuryError::NotInitialized.into());
+        }
 
         ZointsTreasury::valid_name(&name)?;
 

@@ -11,6 +11,7 @@ pub enum TreasuryInstruction {
     Initialize { fee_user: u64, fee_zoints: u64 },
     CreateUserTreasury,
     CreateZointsTreasury { name: Vec<u8> },
+    UpdateFees { fee_user: u64, fee_zoints: u64 },
 }
 
 impl TreasuryInstruction {
@@ -45,6 +46,26 @@ impl TreasuryInstruction {
                 let (name, _rest) = unpack_vec(rest)?;
                 TreasuryInstruction::CreateZointsTreasury { name }
             }
+            3 => {
+                let (fee_user, rest) = rest.split_at(8);
+                let fee_user = fee_user
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+
+                let (fee_zoints, _rest) = rest.split_at(8);
+                let fee_zoints = fee_zoints
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+
+                TreasuryInstruction::UpdateFees {
+                    fee_user,
+                    fee_zoints,
+                }
+            }
             _ => return Err(InvalidInstruction.into()),
         })
     }
@@ -64,6 +85,14 @@ impl TreasuryInstruction {
             TreasuryInstruction::CreateZointsTreasury { name } => {
                 buf.push(2);
                 pack_vec(&name, &mut buf);
+            }
+            TreasuryInstruction::UpdateFees {
+                fee_user,
+                fee_zoints,
+            } => {
+                buf.push(3);
+                buf.extend_from_slice(&fee_user.to_le_bytes());
+                buf.extend_from_slice(&fee_zoints.to_le_bytes());
             }
         }
         buf
