@@ -248,7 +248,7 @@ impl Processor {
                 fee_recipient_info.key,
                 creator_info.key,
                 &[],
-                settings.launch_fee_user,
+                settings.launch_fee_zoints,
             )?,
             &[
                 creator_associated_info.clone(),
