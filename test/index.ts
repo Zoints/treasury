@@ -153,6 +153,8 @@ const token = new Token(
         console.log(`Initialized: ${sig}`);
     })();
 
+    await update_fee(20_000n, 50_000n, settings_id, fee_recipient);
+
     const user_1 = new Keypair();
     await launch_user_treasury(user_1, settings_id, fee_recipient);
 
@@ -165,6 +167,51 @@ const token = new Token(
         fee_recipient
     );
 })();
+
+async function update_fee(
+    fee_user: bigint,
+    fee_zoints: bigint,
+    settings_id: PublicKey,
+    fee_recipient: PublicKey
+) {
+    const keys: AccountMeta[] = [
+        { pubkey: funder.publicKey, isSigner: true, isWritable: false },
+        {
+            pubkey: fee_authority.publicKey,
+            isSigner: true,
+            isWritable: false
+        },
+        { pubkey: fee_recipient, isSigner: false, isWritable: false },
+        {
+            pubkey: settings_id,
+            isSigner: false,
+            isWritable: true
+        },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false
+        }
+    ];
+    const data = Buffer.alloc(1 + 8 + 8, 3);
+    data.writeBigUInt64LE(fee_user, 1); // user fee
+    data.writeBigUInt64LE(fee_zoints, 9); // zoints fee
+
+    const t = new Transaction().add(
+        new TransactionInstruction({
+            keys,
+            programId,
+            data
+        })
+    );
+
+    const sig = await sendAndConfirmTransaction(connection, t, [
+        funder,
+        fee_authority
+    ]);
+    console.log(`Updated fees: ${sig}`);
+}
 
 async function launch_zoints_treasury(
     owner: Keypair,
@@ -179,7 +226,7 @@ async function launch_zoints_treasury(
         zoints_associated,
         new Account(mint_authority.secretKey),
         [],
-        5_000
+        50_000
     );
 
     const zoints_treasury = await PublicKey.findProgramAddress(
@@ -288,7 +335,7 @@ async function launch_user_treasury(
         user_associated,
         new Account(mint_authority.secretKey),
         [],
-        1_000
+        20_000
     );
 
     const user_treasury = await PublicKey.findProgramAddress(
