@@ -68,8 +68,8 @@ impl Processor {
             return Err(TreasuryError::MissingAuthoritySignature.into());
         }
 
-        let _ = Mint::unpack(&token_info.data.borrow_mut())
-            .map_err(|_| TreasuryError::TokenNotSPLToken)?;
+        let _ =
+            Mint::unpack(&token_info.data.borrow()).map_err(|_| TreasuryError::TokenNotSPLToken)?;
 
         let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
             .map_err(|_| TreasuryError::AssociatedAccountInvalid)?;

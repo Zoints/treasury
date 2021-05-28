@@ -115,7 +115,7 @@ const token = new Token(
         */
         const keys: AccountMeta[] = [
             { pubkey: funder.publicKey, isSigner: true, isWritable: false },
-            { pubkey: token_id.publicKey, isSigner: false, isWritable: true },
+            { pubkey: token_id.publicKey, isSigner: false, isWritable: false },
             {
                 pubkey: fee_authority.publicKey,
                 isSigner: true,
@@ -247,12 +247,12 @@ async function launch_zoints_treasury(
         {
             pubkey: funder.publicKey,
             isSigner: true,
-            isWritable: true
+            isWritable: false
         },
         {
             pubkey: owner.publicKey,
             isSigner: true,
-            isWritable: true
+            isWritable: false
         },
         {
             pubkey: zoints_associated,
@@ -355,12 +355,12 @@ async function launch_user_treasury(
         {
             pubkey: funder.publicKey,
             isSigner: true,
-            isWritable: true
+            isWritable: false
         },
         {
             pubkey: user.publicKey,
             isSigner: true,
-            isWritable: true
+            isWritable: false
         },
         {
             pubkey: user_associated,
