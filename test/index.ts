@@ -20,6 +20,7 @@ import {
     SystemProgram
 } from '@solana/web3.js';
 import { Connection } from '@solana/web3.js';
+import { BADNAME } from 'dns';
 import * as fs from 'fs';
 
 const connection = new Connection('http://localhost:8899');
@@ -31,6 +32,8 @@ const fee_authority = new Keypair();
 const mint_authority = new Keypair();
 const deploy_key = new Keypair();
 const programId = deploy_key.publicKey;
+
+const randomSurplus = 1234;
 
 const token = new Token(
     connection,
@@ -105,14 +108,6 @@ const token = new Token(
     )[0];
 
     await (async () => {
-        /*
-        let funder_info = next_account_info(iter)?;
-        let token_info = next_account_info(iter)?;
-        let authority_info = next_account_info(iter)?;
-        let fee_recipient_info = next_account_info(iter)?;
-        let settings_info = next_account_info(iter)?;
-        let rent_info = next_account_info(iter)?;
-        */
         const keys: AccountMeta[] = [
             { pubkey: funder.publicKey, isSigner: true, isWritable: false },
             { pubkey: token_id.publicKey, isSigner: false, isWritable: false },
@@ -166,6 +161,106 @@ const token = new Token(
         settings_id,
         fee_recipient
     );
+
+    console.log(`verify account data`);
+
+    const settings = await connection.getAccountInfo(settings_id);
+    if (settings === null) {
+        console.log(`!!! settings account is missing !!!`);
+    } else {
+        const s_token = new PublicKey(settings.data.slice(0, 32));
+        const s_fee_recipient = new PublicKey(settings.data.slice(32, 64));
+        const s_price_authority = new PublicKey(settings.data.slice(64, 96));
+        const s_user_fee = settings.data.slice(96, 104).readBigUInt64LE();
+        const s_zoints_fee = settings.data.slice(104, 112).readBigUInt64LE();
+
+        if (!s_token.equals(token_id.publicKey)) {
+            console.log(
+                `settings.token mismatch ${s_token.toBase58()} ${token_id.publicKey.toBase58()}`
+            );
+        }
+
+        if (!s_fee_recipient.equals(fee_recipient)) {
+            console.log(
+                `settings.fee_recipient mismatch ${s_fee_recipient.toBase58()} ${fee_recipient.toBase58()}`
+            );
+        }
+
+        if (!s_price_authority.equals(fee_authority.publicKey)) {
+            console.log(
+                `settings.price_authority mismatch ${s_price_authority.toBase58()} ${fee_authority.publicKey.toBase58()}`
+            );
+        }
+
+        if (s_user_fee != 20_000n) {
+            console.log(`settings.user_free mismatch ${s_user_fee} 20_000n`);
+        }
+        if (s_zoints_fee != 50_000n) {
+            console.log(`settings.user_free mismatch ${s_zoints_fee} 50_000n`);
+        }
+    }
+
+    const user_treasury = await PublicKey.findProgramAddress(
+        [Buffer.from('user'), user_1.publicKey.toBuffer()],
+        programId
+    );
+
+    const user = await connection.getAccountInfo(user_treasury[0]);
+    if (user === null) {
+        console.log(`!!! user treasury account missing !!!`);
+    } else {
+        const u_authority = new PublicKey(user.data.slice(0, 32));
+        if (!u_authority.equals(user_1.publicKey)) {
+            console.log(
+                `user.authority mismatch ${u_authority.toBase58()} ${user_1.publicKey.toBase58()}`
+            );
+        }
+
+        const u_assoc_address = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            token_id.publicKey,
+            user_1.publicKey
+        );
+        const u_assoc = await token.getAccountInfo(u_assoc_address);
+
+        if (u_assoc.amount.toNumber() != randomSurplus) {
+            console.log(
+                `user assoc balance wrong ${u_assoc.amount.toNumber()}`
+            );
+        }
+    }
+
+    const zoints_treasury = await PublicKey.findProgramAddress(
+        [Buffer.from('zoints'), zoints_1_keyword],
+        programId
+    );
+
+    const zoints = await connection.getAccountInfo(zoints_treasury[0]);
+    if (zoints === null) {
+        console.log(`!!! zoints treasury account missing !!!`);
+    } else {
+        const z_authority = new PublicKey(zoints.data.slice(0, 32));
+        if (!z_authority.equals(zoints_1.publicKey)) {
+            console.log(
+                `zoints.authority mismatch ${z_authority.toBase58()} ${zoints_1.publicKey.toBase58()}`
+            );
+        }
+
+        const z_assoc_address = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            token_id.publicKey,
+            zoints_1.publicKey
+        );
+        const z_assoc = await token.getAccountInfo(z_assoc_address);
+
+        if (z_assoc.amount.toNumber() != randomSurplus) {
+            console.log(
+                `zoints assoc balance wrong ${z_assoc.amount.toNumber()}`
+            );
+        }
+    }
 })();
 
 async function update_fee(
@@ -226,7 +321,7 @@ async function launch_zoints_treasury(
         zoints_associated,
         new Account(mint_authority.secretKey),
         [],
-        50_000
+        50_000 + randomSurplus
     );
 
     const zoints_treasury = await PublicKey.findProgramAddress(
@@ -335,7 +430,7 @@ async function launch_user_treasury(
         user_associated,
         new Account(mint_authority.secretKey),
         [],
-        20_000
+        20_000 + randomSurplus
     );
 
     const user_treasury = await PublicKey.findProgramAddress(
