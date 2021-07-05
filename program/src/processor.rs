@@ -1,10 +1,12 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
+    program::{invoke, invoke_signed},
     program_pack::Pack,
     pubkey::Pubkey,
+    system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
 
@@ -19,29 +21,26 @@ use crate::{
 pub struct Processor {}
 impl Processor {
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
-        match TreasuryInstruction::unpack(input)? {
+        let instruction = TreasuryInstruction::try_from_slice(input)
+            .map_err(|_| TreasuryError::InvalidInstruction)?;
+
+        msg!("Instruction :: {:?}", instruction);
+
+        match instruction {
             TreasuryInstruction::Initialize {
                 fee_user,
                 fee_zoints,
-            } => {
-                msg!("Instruction :: Initialize");
-                Self::process_initialize(program_id, accounts, fee_user, fee_zoints)
-            }
+            } => Self::process_initialize(program_id, accounts, fee_user, fee_zoints),
             TreasuryInstruction::CreateUserTreasury => {
-                msg!("Instruction :: CreateUserTreasury");
                 Self::process_create_user_treasury(program_id, accounts)
             }
             TreasuryInstruction::CreateZointsTreasury { name } => {
-                msg!("Instruction :: CreateZointsTreasury");
                 Self::process_create_zoints_treasury(program_id, accounts, name)
             }
             TreasuryInstruction::UpdateFees {
                 fee_user,
                 fee_zoints,
-            } => {
-                msg!("Instruction :: UpdateFees");
-                Self::process_update_fees(program_id, accounts, fee_user, fee_zoints)
-            }
+            } => Self::process_update_fees(program_id, accounts, fee_user, fee_zoints),
         }
     }
 
@@ -77,9 +76,6 @@ impl Processor {
             return Err(TreasuryError::AssociatedAccountWrongMint.into());
         }
 
-        // verifies correctness of settings_info
-        Settings::create_account(funder_info, settings_info, rent, program_id)?;
-
         let settings = Settings {
             token: *token_info.key,
             fee_recipient: *fee_recipient_info.key,
@@ -88,7 +84,24 @@ impl Processor {
             launch_fee_zoints,
         };
 
-        Settings::pack(settings, &mut settings_info.data.borrow_mut())?;
+        let data = settings.try_to_vec()?;
+
+        let seed = Settings::verify_program_key(settings_info.key, program_id)?;
+        let lamports = rent.minimum_balance(data.len());
+        let space = data.len() as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                settings_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), settings_info.clone()],
+            &[&[b"settings", &[seed]]],
+        )?;
+
+        settings_info.data.borrow_mut().copy_from_slice(&data);
 
         Ok(())
     }
@@ -109,7 +122,7 @@ impl Processor {
             return Err(TreasuryError::NotInitialized.into());
         }
 
-        let mut settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        let mut settings = Settings::try_from_slice(&settings_info.data.borrow())?;
         settings.verify_price_authority(authority_info)?;
 
         let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
@@ -122,7 +135,10 @@ impl Processor {
         settings.launch_fee_user = fee_user;
         settings.launch_fee_zoints = fee_zoints;
 
-        Settings::pack(settings, &mut settings_info.data.borrow_mut())?;
+        settings_info
+            .data
+            .borrow_mut()
+            .copy_from_slice(&settings.try_to_vec()?);
 
         Ok(())
     }
@@ -155,7 +171,7 @@ impl Processor {
             return Err(TreasuryError::MissingCreatorSignature.into());
         }
 
-        let settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        let settings = Settings::try_from_slice(&settings_info.data.borrow())?;
         if settings.token != *mint_info.key {
             return Err(TreasuryError::MintWrongToken.into());
         }
@@ -168,7 +184,28 @@ impl Processor {
             settings.launch_fee_user,
         )?;
 
-        UserTreasury::create_account(funder_info, treasury_info, creator_info, rent, program_id)?;
+        let user_treasury = UserTreasury {
+            authority: *creator_info.key,
+        };
+        let data = user_treasury.try_to_vec()?;
+
+        let seed =
+            UserTreasury::verify_program_key(treasury_info.key, creator_info.key, program_id)?;
+        let lamports = rent.minimum_balance(data.len());
+        let space = data.len() as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                treasury_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), treasury_info.clone()],
+            &[&[b"user", &creator_info.key.to_bytes(), &[seed]]],
+        )?;
+
+        treasury_info.data.borrow_mut().copy_from_slice(&data);
 
         invoke(
             &spl_token::instruction::transfer(
@@ -219,7 +256,7 @@ impl Processor {
             return Err(TreasuryError::MissingCreatorSignature.into());
         }
 
-        let settings = Settings::unpack_unchecked(&settings_info.data.borrow())?;
+        let settings = Settings::try_from_slice(&settings_info.data.borrow())?;
         if settings.token != *mint_info.key {
             return Err(TreasuryError::MintWrongToken.into());
         }
@@ -232,14 +269,27 @@ impl Processor {
             settings.launch_fee_user,
         )?;
 
-        ZointsTreasury::create_account(
-            funder_info,
-            treasury_info,
-            &name,
-            creator_info,
-            rent,
-            program_id,
+        let zoints_treasury = ZointsTreasury {
+            authority: *creator_info.key,
+        };
+        let data = zoints_treasury.try_to_vec()?;
+
+        let seed = ZointsTreasury::verify_program_key(treasury_info.key, &name, program_id)?;
+        let lamports = rent.minimum_balance(data.len());
+        let space = data.len() as u64;
+        invoke_signed(
+            &system_instruction::create_account(
+                funder_info.key,
+                treasury_info.key,
+                lamports,
+                space,
+                program_id,
+            ),
+            &[funder_info.clone(), treasury_info.clone()],
+            &[&[b"zoints", &name, &[seed]]],
         )?;
+
+        treasury_info.data.borrow_mut().copy_from_slice(&data);
 
         invoke(
             &spl_token::instruction::transfer(
