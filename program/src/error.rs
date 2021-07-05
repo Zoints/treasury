@@ -1,5 +1,7 @@
 use num_derive::FromPrimitive;
-use solana_program::{decode_error::DecodeError, program_error::ProgramError};
+use solana_program::{
+    decode_error::DecodeError, msg, program_error::PrintProgramError, program_error::ProgramError,
+};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, FromPrimitive)]
@@ -82,5 +84,11 @@ impl From<TreasuryError> for ProgramError {
 impl<T> DecodeError<T> for TreasuryError {
     fn type_of() -> &'static str {
         "TreasuryError"
+    }
+}
+
+impl PrintProgramError for TreasuryError {
+    fn print<E>(&self) {
+        msg!("TREASURY-ERROR: {}", &self.to_string());
     }
 }

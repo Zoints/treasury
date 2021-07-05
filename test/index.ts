@@ -20,7 +20,6 @@ import {
     SystemProgram
 } from '@solana/web3.js';
 import { Connection } from '@solana/web3.js';
-import { BADNAME } from 'dns';
 import * as fs from 'fs';
 
 const connection = new Connection('http://localhost:8899');
@@ -390,9 +389,9 @@ async function launch_zoints_treasury(
             isWritable: false
         }
     ];
-    const prefix = Buffer.alloc(1 + 2, 0);
+    const prefix = Buffer.alloc(1 + 4, 0);
     prefix[0] = 2;
-    prefix.writeUInt16LE(name.length, 1);
+    prefix.writeUInt32LE(name.length, 1);
     const data = Buffer.concat([prefix, name]);
 
     const t = new Transaction()

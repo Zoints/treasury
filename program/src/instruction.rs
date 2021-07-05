@@ -1,12 +1,7 @@
-use crate::error::TreasuryError;
-use arrayref::array_ref;
-use solana_program::msg;
-use solana_program::program_error::ProgramError;
-use std::convert::TryInto;
-use std::mem::size_of;
+use borsh::{BorshDeserialize, BorshSerialize};
 
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, BorshDeserialize, BorshSerialize)]
 pub enum TreasuryInstruction {
     /// Initialize the Treasury Program
     ///
@@ -64,114 +59,40 @@ pub enum TreasuryInstruction {
     UpdateFees { fee_user: u64, fee_zoints: u64 },
 }
 
-impl TreasuryInstruction {
-    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        use TreasuryError::InvalidInstruction;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    pub fn test_serialize_instruction_init() {
+        let data = vec![
+            0, 0x5F, 0xCA, 0x12, 0, 0, 0, 0, 0, 0x96, 0xAD, 0x1D, 0x14, 0x2, 0, 0, 0,
+        ];
 
-        let (&ins, rest) = input.split_first().ok_or(InvalidInstruction)?;
+        let instruction = TreasuryInstruction::Initialize {
+            fee_user: 1231455,
+            fee_zoints: 8927423894,
+        };
 
-        Ok(match ins {
-            0 => {
-                let (fee_user, rest) = rest.split_at(8);
-                let fee_user = fee_user
-                    .try_into()
-                    .ok()
-                    .map(u64::from_le_bytes)
-                    .ok_or(InvalidInstruction)?;
-
-                let (fee_zoints, _rest) = rest.split_at(8);
-                let fee_zoints = fee_zoints
-                    .try_into()
-                    .ok()
-                    .map(u64::from_le_bytes)
-                    .ok_or(InvalidInstruction)?;
-
-                TreasuryInstruction::Initialize {
-                    fee_user,
-                    fee_zoints,
-                }
-            }
-            1 => TreasuryInstruction::CreateUserTreasury,
-            2 => {
-                let (name, _rest) = unpack_vec(rest)?;
-                TreasuryInstruction::CreateZointsTreasury { name }
-            }
-            3 => {
-                let (fee_user, rest) = rest.split_at(8);
-                let fee_user = fee_user
-                    .try_into()
-                    .ok()
-                    .map(u64::from_le_bytes)
-                    .ok_or(InvalidInstruction)?;
-
-                let (fee_zoints, _rest) = rest.split_at(8);
-                let fee_zoints = fee_zoints
-                    .try_into()
-                    .ok()
-                    .map(u64::from_le_bytes)
-                    .ok_or(InvalidInstruction)?;
-
-                TreasuryInstruction::UpdateFees {
-                    fee_user,
-                    fee_zoints,
-                }
-            }
-            _ => return Err(InvalidInstruction.into()),
-        })
+        let serialized = instruction.try_to_vec().unwrap();
+        assert_eq!(data, serialized);
+        let decoded = TreasuryInstruction::try_from_slice(&serialized).unwrap();
+        assert_eq!(instruction, decoded);
     }
 
-    pub fn pack(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(size_of::<Self>());
-        match self {
-            &TreasuryInstruction::Initialize {
-                fee_user,
-                fee_zoints,
-            } => {
-                buf.push(0);
-                buf.extend_from_slice(&fee_user.to_le_bytes());
-                buf.extend_from_slice(&fee_zoints.to_le_bytes());
-            }
-            TreasuryInstruction::CreateUserTreasury => buf.push(1),
-            TreasuryInstruction::CreateZointsTreasury { name } => {
-                buf.push(2);
-                pack_vec(&name, &mut buf);
-            }
-            TreasuryInstruction::UpdateFees {
-                fee_user,
-                fee_zoints,
-            } => {
-                buf.push(3);
-                buf.extend_from_slice(&fee_user.to_le_bytes());
-                buf.extend_from_slice(&fee_zoints.to_le_bytes());
-            }
-        }
-        buf
+    #[test]
+    pub fn test_serialize_instruction_create() {
+        let data = vec![
+            0x2, 0x17, 0, 0, 0, 0x61, 0x20, 0x72, 0x61, 0x6E, 0x64, 0x6F, 0x6D, 0x20, 0x75, 0x6E,
+            0x69, 0x74, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x6E, 0x61, 0x6D, 0x65,
+        ];
+
+        let instruction = TreasuryInstruction::CreateZointsTreasury {
+            name: "a random unit test name".as_bytes().to_vec(),
+        };
+
+        let serialized = instruction.try_to_vec().unwrap();
+        assert_eq!(data, serialized);
+        let decoded = TreasuryInstruction::try_from_slice(&serialized).unwrap();
+        assert_eq!(instruction, decoded);
     }
-}
-
-pub fn unpack_vec(input: &[u8]) -> Result<(Vec<u8>, &[u8]), ProgramError> {
-    if input.len() < 2 {
-        msg!("no len data for vector");
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let (len, rest) = input.split_at(2);
-    let len = array_ref![len, 0, 2];
-    let len = u16::from_le_bytes(*len) as usize;
-
-    if rest.len() < len {
-        msg!(
-            "data too short for len. len = {}, actual = {}",
-            len,
-            rest.len()
-        );
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let (data, rest) = rest.split_at(len);
-
-    Ok((Vec::from(data), rest))
-}
-
-pub fn pack_vec(value: &Vec<u8>, buf: &mut Vec<u8>) {
-    buf.extend_from_slice(&(value.len() as u16).to_le_bytes());
-    buf.extend_from_slice(&value);
 }
