@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
-import borsh from 'borsh';
+import * as borsh from 'borsh';
 
 export class Settings {
     public token: PublicKey;

@@ -1,6 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Settings } from './';
-import borsh from 'borsh';
+import * as borsh from 'borsh';
 
 export class Treasury {
     connection: Connection;

@@ -1,15 +1,9 @@
-import {
-    Token,
-    TOKEN_PROGRAM_ID,
-    MintLayout,
-    ASSOCIATED_TOKEN_PROGRAM_ID
-} from '@solana/spl-token';
+import { Token, TOKEN_PROGRAM_ID, MintLayout } from '@solana/spl-token';
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,
     Keypair,
     LAMPORTS_PER_SOL,
-    Signer,
     Transaction,
     TransactionInstruction,
     AccountMeta,
@@ -20,6 +14,7 @@ import {
 } from '@solana/web3.js';
 import { Connection } from '@solana/web3.js';
 import * as fs from 'fs';
+import { TreasuryInstruction, TreasuryInstructions } from '@zoints/treasury';
 
 const connection = new Connection('http://localhost:8899');
 const funder = new Keypair();
@@ -99,35 +94,16 @@ const token = new Token(
         await PublicKey.findProgramAddress([Buffer.from('settings')], programId)
     )[0];
 
-    await (async () => {
-        const keys: AccountMeta[] = [
-            { pubkey: funder.publicKey, isSigner: true, isWritable: false },
-            { pubkey: token_id.publicKey, isSigner: false, isWritable: false },
-            {
-                pubkey: settings_id,
-                isSigner: false,
-                isWritable: true
-            },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false
-            }
-        ];
-        const data = Buffer.alloc(1, 0);
+    const initTx = new Transaction().add(
+        await TreasuryInstruction.Initialize(
+            programId,
+            funder.publicKey,
+            token_id.publicKey
+        )
+    );
 
-        const t = new Transaction().add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        );
-
-        sig = await sendAndConfirmTransaction(connection, t, [funder]);
-        console.log(`Initialized: ${sig}`);
-    })();
+    sig = await sendAndConfirmTransaction(connection, initTx, [funder]);
+    console.log(`Initialized: ${sig}`);
 
     const user_1 = new Keypair();
     await launch_treasury(user_1, settings_id);

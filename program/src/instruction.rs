@@ -12,6 +12,7 @@ pub enum TreasuryInstruction {
     ///   1. `[]` The ZEE Token mint
     ///   2. `[writable]` The global settings program account
     ///   3. `[]` Rent sysvar
+    ///   4. `[]` System Program
     Initialize,
     /// Create Simple Treasury
     ///
@@ -27,6 +28,7 @@ pub enum TreasuryInstruction {
     ///   5. `[]` The global settings program account
     ///   6. `[]` Rent sysvar
     ///   7. `[]` The SPL Token program
+    ///   8. `[]` System Program
     CreateSimpleTreasury,
 }
 

@@ -1,11 +1,12 @@
 import {
     AccountMeta,
     PublicKey,
+    SystemProgram,
     SYSVAR_RENT_PUBKEY,
     TransactionInstruction
 } from '@solana/web3.js';
 import { Treasury } from './treasury';
-import borsh from 'borsh';
+import * as borsh from 'borsh';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 export enum TreasuryInstructions {
@@ -43,8 +44,8 @@ export class TreasuryInstruction {
             am(funder, true, true),
             am(mint, false, false),
             am(settingsId, false, true),
-            am(SYSVAR_RENT_PUBKEY, false, false)
-            //            am(SystemProgram.programId, false, false)
+            am(SYSVAR_RENT_PUBKEY, false, false),
+            am(SystemProgram.programId, false, false)
         ];
 
         const instruction = new SimpleSchema(TreasuryInstructions.Initialize);
@@ -78,8 +79,8 @@ export class TreasuryInstruction {
             am(mint, false, false),
             am(settingsId, false, true),
             am(SYSVAR_RENT_PUBKEY, false, false),
-            am(TOKEN_PROGRAM_ID, false, false)
-            //            am(SystemProgram.programId, false, false)
+            am(TOKEN_PROGRAM_ID, false, false),
+            am(SystemProgram.programId, false, false)
         ];
 
         const instruction = new SimpleSchema(TreasuryInstructions.Initialize);
