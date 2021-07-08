@@ -14,7 +14,7 @@ pub enum TreasuryInstruction {
     ///   3. `[]` The address that receives fees (must be valid ZEE associated account)
     ///   4. `[writable]` The global settings program account
     ///   5. `[]` Rent sysvar
-    Initialize { fee_user: u64, fee_zoints: u64 },
+    Initialize,
     /// Create Simple Treasury
     ///
     /// Initializes a treasury for a specific user. SOL fees are paid by the funder
@@ -31,14 +31,6 @@ pub enum TreasuryInstruction {
     ///   7. `[]` The SPL Token program
     ///   8. `[]` System Program
     CreateSimpleTreasury,
-    /// Update Fees and Fee Recipient
-    ///
-    /// Accounts expected by this instruction:
-    ///   0. `[signer]` The account funding the instruction
-    ///   1. `[signer]` The authority that sets fees
-    ///   2. `[]` The address that receives fees (must be valid ZEE associated account)
-    ///   3. `[writable]` The global settings program account
-    UpdateFees { fee_user: u64, fee_zoints: u64 },
 }
 
 #[cfg(test)]
@@ -50,10 +42,7 @@ mod tests {
             0, 0x5F, 0xCA, 0x12, 0, 0, 0, 0, 0, 0x96, 0xAD, 0x1D, 0x14, 0x2, 0, 0, 0,
         ];
 
-        let instruction = TreasuryInstruction::Initialize {
-            fee_user: 1231455,
-            fee_zoints: 8927423894,
-        };
+        let instruction = TreasuryInstruction::Initialize;
 
         let serialized = instruction.try_to_vec().unwrap();
         assert_eq!(data, serialized);

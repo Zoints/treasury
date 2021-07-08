@@ -7,7 +7,6 @@ import {
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,
-    Account,
     Keypair,
     LAMPORTS_PER_SOL,
     Signer,
@@ -38,7 +37,7 @@ const token = new Token(
     connection,
     token_id.publicKey,
     TOKEN_PROGRAM_ID,
-    new Account(funder.secretKey)
+    funder
 );
 
 (async () => {
@@ -152,15 +151,6 @@ const token = new Token(
     const user_1 = new Keypair();
     await launch_user_treasury(user_1, settings_id, fee_recipient);
 
-    const zoints_1 = new Keypair();
-    const zoints_1_keyword = Buffer.from('test-community');
-    await launch_zoints_treasury(
-        zoints_1,
-        zoints_1_keyword,
-        settings_id,
-        fee_recipient
-    );
-
     console.log(`verify account data`);
 
     const settings = await connection.getAccountInfo(settings_id);
@@ -229,37 +219,6 @@ const token = new Token(
             );
         }
     }
-
-    const zoints_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('zoints'), zoints_1_keyword],
-        programId
-    );
-
-    const zoints = await connection.getAccountInfo(zoints_treasury[0]);
-    if (zoints === null) {
-        console.log(`!!! zoints treasury account missing !!!`);
-    } else {
-        const z_authority = new PublicKey(zoints.data.slice(0, 32));
-        if (!z_authority.equals(zoints_1.publicKey)) {
-            console.log(
-                `zoints.authority mismatch ${z_authority.toBase58()} ${zoints_1.publicKey.toBase58()}`
-            );
-        }
-
-        const z_assoc_address = await Token.getAssociatedTokenAddress(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
-            token_id.publicKey,
-            zoints_1.publicKey
-        );
-        const z_assoc = await token.getAccountInfo(z_assoc_address);
-
-        if (z_assoc.amount.toNumber() != randomSurplus) {
-            console.log(
-                `zoints assoc balance wrong ${z_assoc.amount.toNumber()}`
-            );
-        }
-    }
 })();
 
 async function update_fee(
@@ -306,117 +265,6 @@ async function update_fee(
     ]);
     console.log(`Updated fees: ${sig}`);
 }
-
-async function launch_zoints_treasury(
-    owner: Keypair,
-    name: Buffer,
-    settings_id: PublicKey,
-    fee_recipient: PublicKey
-) {
-    const zoints_associated = await token.createAssociatedTokenAccount(
-        owner.publicKey
-    );
-    await token.mintTo(
-        zoints_associated,
-        new Account(mint_authority.secretKey),
-        [],
-        50_000 + randomSurplus
-    );
-
-    const zoints_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('zoints'), name],
-        programId
-    );
-
-    const zoints_treasury_associated = await PublicKey.findProgramAddress(
-        [
-            zoints_treasury[0].toBuffer(),
-            TOKEN_PROGRAM_ID.toBuffer(),
-            token_id.publicKey.toBuffer()
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: funder.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: owner.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: zoints_associated,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: zoints_treasury[0],
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: token_id.publicKey,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: settings_id,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: fee_recipient,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: SYSVAR_RENT_PUBKEY,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false
-        }
-    ];
-    const prefix = Buffer.alloc(1 + 4, 0);
-    prefix[0] = 2;
-    prefix.writeUInt32LE(name.length, 1);
-    const data = Buffer.concat([prefix, name]);
-
-    const t = new Transaction()
-        .add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        )
-        .add(
-            Token.createAssociatedTokenAccountInstruction(
-                ASSOCIATED_TOKEN_PROGRAM_ID,
-                TOKEN_PROGRAM_ID,
-                token_id.publicKey,
-                zoints_treasury_associated[0],
-                zoints_treasury[0],
-                funder.publicKey
-            )
-        );
-
-    const sig = await sendAndConfirmTransaction(connection, t, [funder, owner]);
-    console.log(`Zoints Treasury launched: ${sig}`);
-}
-
 async function launch_user_treasury(
     user: Keypair,
     settings_id: PublicKey,
@@ -427,7 +275,7 @@ async function launch_user_treasury(
     );
     await token.mintTo(
         user_associated,
-        new Account(mint_authority.secretKey),
+        mint_authority,
         [],
         20_000 + randomSurplus
     );

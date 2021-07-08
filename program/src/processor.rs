@@ -27,31 +27,18 @@ impl Processor {
         msg!("Instruction :: {:?}", instruction);
 
         match instruction {
-            TreasuryInstruction::Initialize {
-                fee_user,
-                fee_zoints,
-            } => Self::process_initialize(program_id, accounts, fee_user, fee_zoints),
+            TreasuryInstruction::Initialize => Self::process_initialize(program_id, accounts),
             TreasuryInstruction::CreateSimpleTreasury => {
                 Self::process_create_simple_treasury(program_id, accounts)
             }
-            TreasuryInstruction::UpdateFees {
-                fee_user,
-                fee_zoints,
-            } => Self::process_update_fees(program_id, accounts, fee_user, fee_zoints),
         }
     }
 
-    pub fn process_initialize(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        launch_fee_user: u64,
-        launch_fee_zoints: u64,
-    ) -> ProgramResult {
+    pub fn process_initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
         let iter = &mut accounts.iter();
         let funder_info = next_account_info(iter)?;
         let token_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
-        let fee_recipient_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
@@ -64,21 +51,10 @@ impl Processor {
             return Err(TreasuryError::MissingAuthoritySignature.into());
         }
 
-        let _ =
-            Mint::unpack(&token_info.data.borrow()).map_err(|_| TreasuryError::TokenNotSPLToken)?;
-
-        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
-            .map_err(|_| TreasuryError::AssociatedAccountInvalid)?;
-        if fee_recipient.mint != *token_info.key {
-            return Err(TreasuryError::AssociatedAccountWrongMint.into());
-        }
+        Mint::unpack(&token_info.data.borrow()).map_err(|_| TreasuryError::TokenNotSPLToken)?;
 
         let settings = Settings {
             token: *token_info.key,
-            fee_recipient: *fee_recipient_info.key,
-            price_authority: *authority_info.key,
-            launch_fee_user,
-            launch_fee_zoints,
         };
 
         let data = settings.try_to_vec()?;
@@ -103,43 +79,6 @@ impl Processor {
         Ok(())
     }
 
-    pub fn process_update_fees(
-        _program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        fee_user: u64,
-        fee_zoints: u64,
-    ) -> ProgramResult {
-        let iter = &mut accounts.iter();
-        let _funder_info = next_account_info(iter)?;
-        let authority_info = next_account_info(iter)?;
-        let fee_recipient_info = next_account_info(iter)?;
-        let settings_info = next_account_info(iter)?;
-
-        if settings_info.data_len() == 0 {
-            return Err(TreasuryError::NotInitialized.into());
-        }
-
-        let mut settings = Settings::try_from_slice(&settings_info.data.borrow())?;
-        settings.verify_price_authority(authority_info)?;
-
-        let fee_recipient = Account::unpack(&fee_recipient_info.data.borrow())
-            .map_err(|_| TreasuryError::AssociatedAccountInvalid)?;
-        if fee_recipient.mint != settings.token {
-            return Err(TreasuryError::AssociatedAccountWrongMint.into());
-        }
-
-        settings.fee_recipient = *fee_recipient_info.key;
-        settings.launch_fee_user = fee_user;
-        settings.launch_fee_zoints = fee_zoints;
-
-        settings_info
-            .data
-            .borrow_mut()
-            .copy_from_slice(&settings.try_to_vec()?);
-
-        Ok(())
-    }
-
     pub fn process_create_simple_treasury(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -147,12 +86,10 @@ impl Processor {
         let iter = &mut accounts.iter();
         let funder_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
-        let authority_associated_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
         let treasury_fund_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
-        let fee_recipient_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
 
         let rent = Rent::from_account_info(rent_info)?;
@@ -162,7 +99,6 @@ impl Processor {
             .map_err(|_| TreasuryError::NotInitialized)?;
 
         settings.verify_mint(mint_info.key)?;
-        settings.verify_fee_recipient(fee_recipient_info.key)?;
 
         if !treasury_info.data_is_empty() {
             return Err(TreasuryError::UserTreasuryExists.into());
@@ -171,13 +107,6 @@ impl Processor {
         if !authority_info.is_signer {
             return Err(TreasuryError::MissingAuthoritySignature.into());
         }
-
-        let (_mint, _associated_account) = settings.verify_token_and_fee_payer(
-            mint_info,
-            authority_info,
-            authority_associated_info,
-            settings.launch_fee_user,
-        )?;
 
         let treasury_seed =
             SimpleTreasury::verify_program_key(treasury_info.key, authority_info.key, program_id)?;
@@ -244,21 +173,6 @@ impl Processor {
 
         treasury_info.data.borrow_mut().copy_from_slice(&data);
 
-        invoke(
-            &spl_token::instruction::transfer(
-                &spl_token::id(),
-                authority_associated_info.key,
-                fee_recipient_info.key,
-                authority_info.key,
-                &[],
-                settings.launch_fee_user,
-            )?,
-            &[
-                authority_associated_info.clone(),
-                fee_recipient_info.clone(),
-                authority_info.clone(),
-                token_program_info.clone(),
-            ],
-        )
+        Ok(())
     }
 }

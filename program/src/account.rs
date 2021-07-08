@@ -1,20 +1,13 @@
 use crate::error::TreasuryError;
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::account_info::AccountInfo;
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
-use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
-use spl_token::state::{Account as SPLAccount, Mint};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct Settings {
     pub token: Pubkey,
-    pub fee_recipient: Pubkey,
-    pub price_authority: Pubkey,
-    pub launch_fee_user: u64,
-    pub launch_fee_zoints: u64,
 }
 
 impl Settings {
@@ -31,58 +24,11 @@ impl Settings {
         Ok(seed)
     }
 
-    pub fn verify_fee_recipient(&self, key: &Pubkey) -> Result<(), ProgramError> {
-        match self.fee_recipient == *key {
-            true => Ok(()),
-            false => Err(TreasuryError::InvalidFeeRecipient.into()),
-        }
-    }
-
     pub fn verify_mint(&self, key: &Pubkey) -> Result<(), ProgramError> {
         match self.token == *key {
             true => Ok(()),
             false => Err(TreasuryError::MintWrongToken.into()),
         }
-    }
-
-    pub fn verify_price_authority(
-        &self,
-        price_authority_info: &AccountInfo,
-    ) -> Result<(), ProgramError> {
-        if !price_authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
-        }
-
-        match self.price_authority == *price_authority_info.key {
-            true => Ok(()),
-            false => Err(TreasuryError::InvalidPriceAuthority.into()),
-        }
-    }
-
-    pub fn verify_token_and_fee_payer(
-        &self,
-        mint_info: &AccountInfo,
-        owner: &AccountInfo,
-        associated_account: &AccountInfo,
-        fee: u64,
-    ) -> Result<(Mint, SPLAccount), ProgramError> {
-        let mint =
-            Mint::unpack(&mint_info.data.borrow()).map_err(|_| TreasuryError::MintInvalid)?;
-
-        let associated_account = SPLAccount::unpack(&associated_account.data.borrow())?;
-        if associated_account.owner != *owner.key {
-            return Err(TreasuryError::AssociatedAccountInvalid.into());
-        }
-
-        if associated_account.mint != *mint_info.key {
-            return Err(TreasuryError::AssociatedAccountWrongMint.into());
-        }
-
-        if fee > 0 && associated_account.amount < fee {
-            return Err(TreasuryError::NotEnoughZEE.into());
-        }
-
-        Ok((mint, associated_account))
     }
 }
 
@@ -141,10 +87,6 @@ mod tests {
     pub fn test_serialize_accounts() {
         let settings = Settings {
             token: Pubkey::new_unique(),
-            fee_recipient: Pubkey::new_unique(),
-            price_authority: Pubkey::new_unique(),
-            launch_fee_user: 9238478234,
-            launch_fee_zoints: 1239718515,
         };
         let settings_data = settings.try_to_vec().unwrap();
         assert_eq!(settings, Settings::try_from_slice(&settings_data).unwrap());
