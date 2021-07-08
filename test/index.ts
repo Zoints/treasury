@@ -91,6 +91,11 @@ const treasury = new Treasury(connection, programId);
         token_id
     ]);
 
+    const funderAssoc = await token.getOrCreateAssociatedAccountInfo(
+        funder.publicKey
+    );
+    await token.mintTo(funderAssoc.address, mint_authority, [], 100_000);
+
     console.log(`Attempting to initialize`);
 
     const settings_id = (
@@ -108,8 +113,8 @@ const treasury = new Treasury(connection, programId);
     sig = await sendAndConfirmTransaction(connection, initTx, [funder]);
     console.log(`Initialized: ${sig}`);
 
-    const user_1 = new Keypair();
-    await launch_treasury(user_1);
+    const treasury1 = new Keypair();
+    await launch_treasury(treasury1);
 
     console.log(`verify account data`);
 
@@ -125,15 +130,32 @@ const treasury = new Treasury(connection, programId);
     }
 
     try {
-        const simple = await treasury.getSimpleTreasury(user_1.publicKey);
+        const simple = await treasury.getSimpleTreasury(treasury1.publicKey);
         if (simple.mode !== SimpleTreasuryMode.Locked) {
             console.log(`simple.mode mismatch`);
         }
-        if (!simple.authority.equals(user_1.publicKey)) {
+        if (!simple.authority.equals(treasury1.publicKey)) {
             console.log(
-                `simple.authority mismatch ${simple.authority.toBase58()} ${user_1.publicKey.toBase58()}`
+                `simple.authority mismatch ${simple.authority.toBase58()} ${treasury1.publicKey.toBase58()}`
             );
         }
+
+        const fund = await Treasury.simpleTreasuryFundId(
+            await Treasury.simpleTreasuryId(treasury1.publicKey, programId),
+            programId
+        );
+
+        const transfer = await token.transfer(
+            funderAssoc.address,
+            fund,
+            funder,
+            [],
+            100_000
+        );
+        console.log(`Transferred ${transfer}`);
+
+        const treasuryFund = await token.getAccountInfo(fund);
+        console.log(`Fund funds: ${treasuryFund.amount}`);
     } catch (e) {
         console.log(e);
     }
