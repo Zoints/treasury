@@ -23,8 +23,8 @@ pub enum TreasuryInstruction {
     ///   1. `[signer]` The authority that controls the treasury
     ///   2. `[writable]` The treasury account for the authority
     ///   3. `[writable]` The treasury account's fund address
-    ///   3. `[]` The ZEE token mint
-    ///   4. `[]` The global settings program account
+    ///   4. `[]` The ZEE token mint
+    ///   5. `[]` The global settings program account
     ///   6. `[]` Rent sysvar
     ///   7. `[]` The SPL Token program
     CreateSimpleTreasury,

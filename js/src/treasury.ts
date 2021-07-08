@@ -28,4 +28,28 @@ export class Treasury {
             )
         )[0];
     }
+
+    static async simpleTreasuryId(
+        authority: PublicKey,
+        programId: PublicKey
+    ): Promise<PublicKey> {
+        return (
+            await PublicKey.findProgramAddress(
+                [Buffer.from('simple'), authority.toBuffer()],
+                programId
+            )
+        )[0];
+    }
+
+    static async simpleTreasuryFundId(
+        authority: PublicKey,
+        programId: PublicKey
+    ): Promise<PublicKey> {
+        return (
+            await PublicKey.findProgramAddress(
+                [Buffer.from('simple fund'), authority.toBuffer()],
+                programId
+            )
+        )[0];
+    }
 }
