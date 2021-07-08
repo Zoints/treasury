@@ -10,10 +10,8 @@ pub enum TreasuryInstruction {
     /// Accounts expected by this instruction:
     ///   0. `[signer]` The account funding the instruction
     ///   1. `[]` The ZEE Token mint
-    ///   2. `[signer]` The authority that sets fees
-    ///   3. `[]` The address that receives fees (must be valid ZEE associated account)
-    ///   4. `[writable]` The global settings program account
-    ///   5. `[]` Rent sysvar
+    ///   2. `[writable]` The global settings program account
+    ///   3. `[]` Rent sysvar
     Initialize,
     /// Create Simple Treasury
     ///
@@ -22,14 +20,13 @@ pub enum TreasuryInstruction {
     ///
     /// Accounts expected by this instruction:
     ///   0. `[signer]` The account funding the instruction
-    ///   1. `[signer]` The creator
-    ///   2. `[writable]` The creator's ZEE associated token account
+    ///   1. `[signer]` The authority that controls the treasury
+    ///   2. `[writable]` The treasury account for the authority
+    ///   3. `[writable]` The treasury account's fund address
     ///   3. `[]` The ZEE token mint
     ///   4. `[]` The global settings program account
-    ///   5. `[writable]` The fee recipient address
     ///   6. `[]` Rent sysvar
     ///   7. `[]` The SPL Token program
-    ///   8. `[]` System Program
     CreateSimpleTreasury,
 }
 
@@ -38,9 +35,7 @@ mod tests {
     use super::*;
     #[test]
     pub fn test_serialize_instruction_init() {
-        let data = vec![
-            0, 0x5F, 0xCA, 0x12, 0, 0, 0, 0, 0, 0x96, 0xAD, 0x1D, 0x14, 0x2, 0, 0, 0,
-        ];
+        let data = vec![0];
 
         let instruction = TreasuryInstruction::Initialize;
 

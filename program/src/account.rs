@@ -50,12 +50,12 @@ impl SimpleTreasury {
         Pubkey::find_program_address(&[b"simple", &authority.to_bytes()], program_id)
     }
 
-    pub fn verify_program_key(
+    pub fn verify_program_address(
         key: &Pubkey,
-        owner: &Pubkey,
+        authority: &Pubkey,
         program_id: &Pubkey,
     ) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::program_address(owner, program_id);
+        let (derived_key, seed) = Self::program_address(authority, program_id);
         if *key != derived_key {
             return Err(TreasuryError::InvalidTreasuryAddress.into());
         }

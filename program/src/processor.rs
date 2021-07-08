@@ -38,17 +38,12 @@ impl Processor {
         let iter = &mut accounts.iter();
         let funder_info = next_account_info(iter)?;
         let token_info = next_account_info(iter)?;
-        let authority_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let rent = Rent::from_account_info(rent_info)?;
 
         if settings_info.try_data_len()? > 0 {
             return Err(TreasuryError::AlreadyInitialized.into());
-        }
-
-        if !authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
         }
 
         Mint::unpack(&token_info.data.borrow()).map_err(|_| TreasuryError::TokenNotSPLToken)?;
@@ -91,9 +86,9 @@ impl Processor {
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
+        let token_program_info = next_account_info(iter)?;
 
         let rent = Rent::from_account_info(rent_info)?;
-        let token_program_info = next_account_info(iter)?;
 
         let settings = Settings::try_from_slice(&settings_info.data.borrow())
             .map_err(|_| TreasuryError::NotInitialized)?;
@@ -108,8 +103,11 @@ impl Processor {
             return Err(TreasuryError::MissingAuthoritySignature.into());
         }
 
-        let treasury_seed =
-            SimpleTreasury::verify_program_key(treasury_info.key, authority_info.key, program_id)?;
+        let treasury_seed = SimpleTreasury::verify_program_address(
+            treasury_info.key,
+            authority_info.key,
+            program_id,
+        )?;
 
         let fund_seed = SimpleTreasury::verify_fund_address(
             treasury_fund_info.key,
@@ -168,7 +166,7 @@ impl Processor {
                 program_id,
             ),
             &[funder_info.clone(), treasury_info.clone()],
-            &[&[b"user", &authority_info.key.to_bytes(), &[treasury_seed]]],
+            &[&[b"simple", &authority_info.key.to_bytes(), &[treasury_seed]]],
         )?;
 
         treasury_info.data.borrow_mut().copy_from_slice(&data);
