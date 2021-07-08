@@ -21,27 +21,19 @@ pub enum TreasuryError {
     /// The authority did not sign the transaction
     #[error("The authority did not sign the transaction")]
     MissingAuthoritySignature,
-    /// Invalid User Treasury Key
-    #[error("Invalid User Treasury Key")]
-    InvalidUserTreasuryKey,
+
+    /// Invalid Treasury Address
+    #[error("Invalid Treasury Address")]
+    InvalidTreasuryAddress,
+
+    /// Invalid Treasury Fund Address
+    #[error("Invalid Treasury Fund Address")]
+    InvalidTreasuryFundAddress,
+
     /// User Treasury Already Exists
     #[error("User Treasury Already Exists")]
     UserTreasuryExists,
-    /// Invalid Zoints Treasury Key
-    #[error("Invalid Zoints Treasury Key")]
-    InvalidZointsTreasuryKey,
-    /// Zoints Treasury Already Exists
-    #[error("Zoints Treasury Already Exists")]
-    ZointsTreasuryExists,
-    /// Name is too short (at least 1 character)
-    #[error("Name is too short (at least 1 character)")]
-    ZointsTreasuryNameTooShort,
-    /// Name is too long (max 32 characters)
-    #[error("Name is too long (max 32 characters)")]
-    ZointsTreasuryNameTooLong,
-    /// Name contains invalid characters
-    #[error("Name contains invalid characters")]
-    ZointsTreasuryNameInvalidCharacters,
+
     /// The token is not a valid SPL Token Mint
     #[error("The token is not a valid SPL Token Mint")]
     TokenNotSPLToken,

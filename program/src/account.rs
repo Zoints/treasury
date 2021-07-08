@@ -5,7 +5,6 @@ use solana_program::msg;
 use solana_program::program_error::ProgramError;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
-use solana_program::pubkey::MAX_SEED_LEN;
 use spl_token::state::{Account as SPLAccount, Mint};
 
 #[repr(C)]
@@ -36,6 +35,13 @@ impl Settings {
         match self.fee_recipient == *key {
             true => Ok(()),
             false => Err(TreasuryError::InvalidFeeRecipient.into()),
+        }
+    }
+
+    pub fn verify_mint(&self, key: &Pubkey) -> Result<(), ProgramError> {
+        match self.token == *key {
+            true => Ok(()),
+            false => Err(TreasuryError::MintWrongToken.into()),
         }
     }
 
@@ -81,119 +87,55 @@ impl Settings {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct UserTreasury {
-    pub authority: Pubkey,
-}
-
-impl UserTreasury {
-    pub fn program_address(user: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"user", &user.to_bytes()], program_id)
-    }
-
-    pub fn verify_program_key(
-        key: &Pubkey,
-        user: &Pubkey,
-        program_id: &Pubkey,
-    ) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::program_address(user, program_id);
-        if *key != derived_key {
-            msg!("invalid user community account");
-            return Err(TreasuryError::InvalidUserTreasuryKey.into());
-        }
-        Ok(seed)
-    }
+#[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub enum SimpleTreasuryMode {
+    Locked,
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, BorshDeserialize, BorshSerialize)]
-pub struct ZointsTreasury {
+#[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct SimpleTreasury {
+    pub mode: SimpleTreasuryMode,
     pub authority: Pubkey,
 }
 
-impl ZointsTreasury {
-    pub fn program_address(name: &Vec<u8>, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"zoints", name], program_id)
+impl SimpleTreasury {
+    pub fn program_address(authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"simple", &authority.to_bytes()], program_id)
     }
 
     pub fn verify_program_key(
         key: &Pubkey,
-        name: &Vec<u8>,
+        owner: &Pubkey,
         program_id: &Pubkey,
     ) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::program_address(name, program_id);
+        let (derived_key, seed) = Self::program_address(owner, program_id);
         if *key != derived_key {
-            msg!("invalid zoints community account");
-            return Err(TreasuryError::InvalidZointsTreasuryKey.into());
+            return Err(TreasuryError::InvalidTreasuryAddress.into());
         }
         Ok(seed)
     }
 
-    fn valid_character(n: u8) -> bool {
-        match n as char {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '-' | '.' | '(' | ')' => true,
-            _ => false,
-        }
+    pub fn fund_address(treasury: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"simple fund", &treasury.to_bytes()], program_id)
     }
 
-    pub fn valid_name(name: &Vec<u8>) -> Result<(), ProgramError> {
-        if name.len() < 1 {
-            return Err(TreasuryError::ZointsTreasuryNameTooShort.into());
+    pub fn verify_fund_address(
+        key: &Pubkey,
+        treasury: &Pubkey,
+        program_id: &Pubkey,
+    ) -> Result<u8, ProgramError> {
+        let (derived_key, seed) = Self::fund_address(treasury, program_id);
+        if *key != derived_key {
+            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
-        if name.len() > MAX_SEED_LEN {
-            return Err(TreasuryError::ZointsTreasuryNameTooLong.into());
-        }
-
-        match name.iter().all(|&n| ZointsTreasury::valid_character(n)) {
-            true => Ok(()),
-            false => Err(TreasuryError::ZointsTreasuryNameInvalidCharacters.into()),
-        }
+        Ok(seed)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn cast_error(e: TreasuryError) -> Result<(), ProgramError> {
-        return Err(e.into());
-    }
-
-    #[test]
-    pub fn test_verify_name() {
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameTooShort)
-        );
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"000000000000000000000000000000001".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameTooLong)
-        );
-        assert_eq!(ZointsTreasury::valid_name(&b"a".to_vec()), Ok(()));
-
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"00000000000000000000000000000000".to_vec()),
-            Ok(())
-        );
-        assert_eq!(ZointsTreasury::valid_name(&b"valid_name".to_vec()), Ok(()));
-        assert_eq!(ZointsTreasury::valid_name(&b"aAzZ09-_.()".to_vec()), Ok(()));
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"invalid name".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
-        );
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"%".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
-        );
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"%20".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
-        );
-        assert_eq!(
-            ZointsTreasury::valid_name(&b"random{word".to_vec()),
-            cast_error(TreasuryError::ZointsTreasuryNameInvalidCharacters)
-        );
-    }
 
     #[test]
     pub fn test_serialize_accounts() {
@@ -207,22 +149,14 @@ mod tests {
         let settings_data = settings.try_to_vec().unwrap();
         assert_eq!(settings, Settings::try_from_slice(&settings_data).unwrap());
 
-        let user_treasury = UserTreasury {
+        let user_treasury = SimpleTreasury {
+            mode: SimpleTreasuryMode::Locked,
             authority: Pubkey::new_unique(),
         };
         let user_treasury_data = user_treasury.try_to_vec().unwrap();
         assert_eq!(
             user_treasury,
-            UserTreasury::try_from_slice(&user_treasury_data).unwrap()
-        );
-
-        let zoints_treasury = ZointsTreasury {
-            authority: Pubkey::new_unique(),
-        };
-        let zoints_treasury_data = zoints_treasury.try_to_vec().unwrap();
-        assert_eq!(
-            zoints_treasury,
-            ZointsTreasury::try_from_slice(&zoints_treasury_data).unwrap()
+            SimpleTreasury::try_from_slice(&user_treasury_data).unwrap()
         );
     }
 }
