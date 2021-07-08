@@ -1,6 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Settings } from './';
 import * as borsh from 'borsh';
+import { SimpleTreasury } from './accounts';
 
 export class Treasury {
     connection: Connection;
@@ -18,6 +19,24 @@ export class Treasury {
             throw new Error('Unable to find settings account');
 
         return borsh.deserialize(Settings.schema, Settings, account.data);
+    }
+
+    public async getSimpleTreasury(
+        authority: PublicKey
+    ): Promise<SimpleTreasury> {
+        const treasuryId = await Treasury.simpleTreasuryId(
+            authority,
+            this.programId
+        );
+        const account = await this.connection.getAccountInfo(treasuryId);
+        if (account === null)
+            throw new Error('Unable to find simple treasury account');
+
+        return borsh.deserialize(
+            SimpleTreasury.schema,
+            SimpleTreasury,
+            account.data
+        );
     }
 
     static async settingsId(programId: PublicKey): Promise<PublicKey> {
@@ -42,12 +61,12 @@ export class Treasury {
     }
 
     static async simpleTreasuryFundId(
-        authority: PublicKey,
+        treasury: PublicKey,
         programId: PublicKey
     ): Promise<PublicKey> {
         return (
             await PublicKey.findProgramAddress(
-                [Buffer.from('simple fund'), authority.toBuffer()],
+                [Buffer.from('simple fund'), treasury.toBuffer()],
                 programId
             )
         )[0];

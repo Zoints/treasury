@@ -34,15 +34,15 @@ export class SimpleTreasury {
             {
                 kind: 'struct',
                 fields: [
-                    ['mode', 'u16'],
+                    ['mode', 'u8'],
                     ['authority', [32]]
                 ]
             }
         ]
     ]);
 
-    constructor(params: { mode: BN; authority: Uint8Array }) {
-        switch (params.mode.toNumber()) {
+    constructor(params: { mode: number; authority: Uint8Array }) {
+        switch (params.mode) {
             case 0:
                 this.mode = SimpleTreasuryMode.Locked;
                 break;

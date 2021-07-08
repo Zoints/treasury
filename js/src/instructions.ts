@@ -69,7 +69,7 @@ export class TreasuryInstruction {
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
-        const fund = await Treasury.simpleTreasuryFundId(authority, programId);
+        const fund = await Treasury.simpleTreasuryFundId(treasury, programId);
 
         const keys: AccountMeta[] = [
             am(funder, true, true),
@@ -83,7 +83,9 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new SimpleSchema(TreasuryInstructions.Initialize);
+        const instruction = new SimpleSchema(
+            TreasuryInstructions.CreateSimpleTreasury
+        );
         const instructionData = borsh.serialize(
             SimpleSchema.schema,
             instruction

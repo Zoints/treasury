@@ -5,16 +5,17 @@ import {
     Keypair,
     LAMPORTS_PER_SOL,
     Transaction,
-    TransactionInstruction,
-    AccountMeta,
     PublicKey,
-    SYSVAR_RENT_PUBKEY,
     sendAndConfirmTransaction,
     SystemProgram
 } from '@solana/web3.js';
 import { Connection } from '@solana/web3.js';
 import * as fs from 'fs';
-import { TreasuryInstruction, TreasuryInstructions } from '@zoints/treasury';
+import {
+    SimpleTreasuryMode,
+    Treasury,
+    TreasuryInstruction
+} from '@zoints/treasury';
 
 const connection = new Connection('http://localhost:8899');
 const funder = new Keypair();
@@ -31,6 +32,8 @@ const token = new Token(
     TOKEN_PROGRAM_ID,
     funder
 );
+
+const treasury = new Treasury(connection, programId);
 
 (async () => {
     console.log(`Funding ${funder.publicKey.toBase58()} with 20 SOL`);
@@ -106,117 +109,44 @@ const token = new Token(
     console.log(`Initialized: ${sig}`);
 
     const user_1 = new Keypair();
-    await launch_treasury(user_1, settings_id);
+    await launch_treasury(user_1);
 
     console.log(`verify account data`);
 
-    const settings = await connection.getAccountInfo(settings_id);
-    if (settings === null) {
-        console.log(`!!! settings account is missing !!!`);
-    } else {
-        const s_token = new PublicKey(settings.data.slice(0, 32));
-
-        if (!s_token.equals(token_id.publicKey)) {
+    try {
+        const settings = await treasury.getSettings();
+        if (!settings.token.equals(token_id.publicKey)) {
             console.log(
-                `settings.token mismatch ${s_token.toBase58()} ${token_id.publicKey.toBase58()}`
+                `settings.token mismatch ${settings.token.toBase58()} ${token_id.publicKey.toBase58()}`
             );
         }
+    } catch (e) {
+        console.log(e);
     }
 
-    const treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('simple'), user_1.publicKey.toBuffer()],
-        programId
-    );
-
-    const user = await connection.getAccountInfo(treasury[0]);
-    if (user === null) {
-        console.log(`!!! user treasury account missing !!!`);
-    } else {
-        const u_authority = new PublicKey(user.data.slice(2, 32));
-        if (!u_authority.equals(user_1.publicKey)) {
+    try {
+        const simple = await treasury.getSimpleTreasury(user_1.publicKey);
+        if (simple.mode !== SimpleTreasuryMode.Locked) {
+            console.log(`simple.mode mismatch`);
+        }
+        if (!simple.authority.equals(user_1.publicKey)) {
             console.log(
-                `user.authority mismatch ${u_authority.toBase58()} ${user_1.publicKey.toBase58()}`
+                `simple.authority mismatch ${simple.authority.toBase58()} ${user_1.publicKey.toBase58()}`
             );
         }
+    } catch (e) {
+        console.log(e);
     }
 })();
 
-async function launch_treasury(authority: Keypair, settings_id: PublicKey) {
-    const treasury = (
-        await PublicKey.findProgramAddress(
-            [Buffer.from('simple'), authority.publicKey.toBuffer()],
-            programId
-        )
-    )[0];
-    const treasury_fund = (
-        await PublicKey.findProgramAddress(
-            [Buffer.from('simple fund'), treasury.toBuffer()],
-            programId
-        )
-    )[0];
-    ///   0. `[signer]` The account funding the instruction
-    ///   1. `[signer]` The authority that controls the treasury
-    ///   2. `[writable]` The treasury account for the authority
-    ///   3. `[writable]` The treasury account's fund address
-    ///   3. `[]` The ZEE token mint
-    ///   4. `[]` The global settings program account
-    ///   6. `[]` Rent sysvar
-    ///   7. `[]` The SPL Token program
-    const keys: AccountMeta[] = [
-        {
-            pubkey: funder.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: authority.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: treasury,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: treasury_fund,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: token_id.publicKey,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: settings_id,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: SYSVAR_RENT_PUBKEY,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false
-        }
-    ];
-    const data = Buffer.alloc(1, 1);
-
+async function launch_treasury(authority: Keypair) {
     const tx = new Transaction().add(
-        new TransactionInstruction({
-            keys,
+        await TreasuryInstruction.CreateSimpleTreasury(
             programId,
-            data
-        })
+            funder.publicKey,
+            authority.publicKey,
+            token_id.publicKey
+        )
     );
 
     const sig = await sendAndConfirmTransaction(connection, tx, [
