@@ -1,5 +1,8 @@
+use std::u16;
+
 use crate::error::TreasuryError;
 use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::clock::UnixTimestamp;
 use solana_program::msg;
 use solana_program::program_error::ProgramError;
 use solana_program::pubkey::Pubkey;
@@ -48,6 +51,34 @@ pub struct SimpleTreasury {
 impl SimpleTreasury {
     pub fn program_address(authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"simple", &authority.to_bytes()], program_id)
+    }
+
+    pub fn verify_program_address(
+        key: &Pubkey,
+        authority: &Pubkey,
+        program_id: &Pubkey,
+    ) -> Result<u8, ProgramError> {
+        let (derived_key, seed) = Self::program_address(authority, program_id);
+        if *key != derived_key {
+            return Err(TreasuryError::InvalidTreasuryAddress.into());
+        }
+        Ok(seed)
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct VestedTreasury {
+    pub authority: Pubkey,
+    pub initial_amount: u64,
+    pub start: UnixTimestamp,
+    pub vestment_period: u64,
+    pub vestment_percentage: u16,
+    pub withdrawn: u64,
+}
+impl VestedTreasury {
+    pub fn program_address(authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"vested", &authority.to_bytes()], program_id)
     }
 
     pub fn verify_program_address(

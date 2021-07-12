@@ -30,6 +30,11 @@ pub enum TreasuryInstruction {
     ///   7. `[]` The SPL Token program
     ///   8. `[]` System Program
     CreateSimpleTreasury,
+    CreatedVestedTreaury {
+        amount: u64,
+        period: u64,
+        percentage: u16,
+    },
 }
 
 #[cfg(test)]

@@ -9,15 +9,19 @@ pub enum TreasuryError {
     /// Invalid instruction
     #[error("Invalid instruction")]
     InvalidInstruction,
+
     /// Program has already been initialized
     #[error("Program has already been initialized")]
     AlreadyInitialized,
+
     /// Program has not been initialized
     #[error("Program has not been initialized")]
     NotInitialized,
+
     /// Invalid Settings Key
     #[error("Invalid Settings Key")]
     InvalidSettingsKey,
+
     /// The authority did not sign the transaction
     #[error("The authority did not sign the transaction")]
     MissingAuthoritySignature,
@@ -30,43 +34,33 @@ pub enum TreasuryError {
     #[error("Invalid Treasury Fund Address")]
     InvalidTreasuryFundAddress,
 
-    /// User Treasury Already Exists
-    #[error("User Treasury Already Exists")]
-    UserTreasuryExists,
+    /// Treasury Already Exists
+    #[error("Treasury Already Exists")]
+    TreasuryAlreadyExists,
 
     /// The token is not a valid SPL Token Mint
     #[error("The token is not a valid SPL Token Mint")]
     TokenNotSPLToken,
-    /// Missing Creator's Signature
-    #[error("Missing Creator's Signature")]
-    MissingCreatorSignature,
-    /// Associated account is invalid
-    #[error("Associated account is invalid")]
-    AssociatedAccountInvalid,
-    /// Treasury associated account is invalid
-    #[error("Treasury associated account is invalid")]
-    TreasuryAssociatedAccountInvalid,
-    /// Associated account is for the wrong Mint
-    #[error("Associated account is for the wrong Mint")]
-    AssociatedAccountWrongMint,
+
     /// Mint is invalid
     #[error("Mint is invalid")]
     MintInvalid,
+
     /// Mint is for the wrong token
     #[error("Mint is for the wrong token")]
     MintWrongToken,
 
-    /// Not enough ZEE to cover the cost of creation
-    #[error("Not enough ZEE to cover the cost of creation")]
-    NotEnoughZEE,
+    /// Invalid Vestment Percentage (must be between 1 and 1000)
+    #[error("Invalid Vestment Percentage (must be between 1 and 1000)")]
+    InvalidVestmentPercentage,
 
-    /// Invalid Fee Recipient
-    #[error("Invalid Fee Recipient")]
-    InvalidFeeRecipient,
+    /// Invalid Vestment Period (must be > 0)
+    #[error("Invalid Vestment Invalid Vestment Period (must be > 0)")]
+    InvalidVestmentPeriod,
 
-    /// Invalid Price Authority
-    #[error("Invalid Price Authority")]
-    InvalidPriceAuthority,
+    /// Invalid Vestment Amount (must be > 0)
+    #[error("Invalid Vestment Invalid Vestment Amount (must be > 0)")]
+    InvalidVestmentAmount,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {
