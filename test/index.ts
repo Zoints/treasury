@@ -1,9 +1,4 @@
-import {
-    Token,
-    TOKEN_PROGRAM_ID,
-    MintLayout,
-    ASSOCIATED_TOKEN_PROGRAM_ID
-} from '@solana/spl-token';
+import { Token, TOKEN_PROGRAM_ID, MintLayout } from '@solana/spl-token';
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,

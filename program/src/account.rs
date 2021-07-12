@@ -61,22 +61,6 @@ impl SimpleTreasury {
         }
         Ok(seed)
     }
-
-    pub fn fund_address(treasury: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"simple fund", &treasury.to_bytes()], program_id)
-    }
-
-    pub fn verify_fund_address(
-        key: &Pubkey,
-        treasury: &Pubkey,
-        program_id: &Pubkey,
-    ) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::fund_address(treasury, program_id);
-        if *key != derived_key {
-            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
-        }
-        Ok(seed)
-    }
 }
 
 #[cfg(test)]
