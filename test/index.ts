@@ -1,4 +1,9 @@
-import { Token, TOKEN_PROGRAM_ID, MintLayout } from '@solana/spl-token';
+import {
+    Token,
+    TOKEN_PROGRAM_ID,
+    MintLayout,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+} from '@solana/spl-token';
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,
@@ -130,7 +135,9 @@ const treasury = new Treasury(connection, programId);
     }
 
     try {
-        const simple = await treasury.getSimpleTreasury(treasury1.publicKey);
+        const simple = await treasury.getSimpleTreasuryByAuthority(
+            treasury1.publicKey
+        );
         if (simple.mode !== SimpleTreasuryMode.Locked) {
             console.log(`simple.mode mismatch`);
         }
@@ -140,9 +147,13 @@ const treasury = new Treasury(connection, programId);
             );
         }
 
-        const fund = await Treasury.simpleTreasuryFundId(
-            await Treasury.simpleTreasuryId(treasury1.publicKey, programId),
+        const treasuryId = await Treasury.simpleTreasuryId(
+            treasury1.publicKey,
             programId
+        );
+        const fund = await Treasury.simpleTreasuryFundId(
+            treasuryId,
+            token_id.publicKey
         );
 
         const transfer = await token.transfer(
@@ -163,12 +174,12 @@ const treasury = new Treasury(connection, programId);
 
 async function launch_treasury(authority: Keypair) {
     const tx = new Transaction().add(
-        await TreasuryInstruction.CreateSimpleTreasury(
+        ...(await TreasuryInstruction.CreateSimpleTreasuryAndFundAccount(
             programId,
             funder.publicKey,
             authority.publicKey,
             token_id.publicKey
-        )
+        ))
     );
 
     const sig = await sendAndConfirmTransaction(connection, tx, [

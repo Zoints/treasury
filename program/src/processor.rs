@@ -3,14 +3,14 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::{invoke, invoke_signed},
+    program::invoke_signed,
     program_pack::Pack,
     pubkey::Pubkey,
-    system_instruction::{self, create_account},
+    system_instruction::{self},
     sysvar::{rent::Rent, Sysvar},
 };
 
-use spl_token::state::{Account, Mint};
+use spl_token::state::Mint;
 
 use crate::{
     account::{Settings, SimpleTreasury},
@@ -86,7 +86,6 @@ impl Processor {
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
-        let token_program_info = next_account_info(iter)?;
 
         let rent = Rent::from_account_info(rent_info)?;
 
@@ -109,44 +108,13 @@ impl Processor {
             program_id,
         )?;
 
-        let fund_seed = SimpleTreasury::verify_fund_address(
-            treasury_fund_info.key,
+        let fund_address = spl_associated_token_account::get_associated_token_address(
             treasury_info.key,
-            program_id,
-        )?;
+            mint_info.key,
+        );
 
-        if treasury_fund_info.data_is_empty() {
-            let lamports = rent.minimum_balance(Account::LEN);
-            let space = Account::LEN as u64;
-            invoke_signed(
-                &create_account(
-                    funder_info.key,
-                    treasury_fund_info.key,
-                    lamports,
-                    space,
-                    &spl_token::id(),
-                ),
-                &[funder_info.clone(), treasury_fund_info.clone()],
-                &[&[b"simple fund", &treasury_info.key.to_bytes(), &[fund_seed]]],
-            )?;
-
-            invoke(
-                &spl_token::instruction::initialize_account(
-                    &spl_token::id(),
-                    treasury_fund_info.key,
-                    mint_info.key,
-                    treasury_info.key,
-                )?,
-                &[
-                    treasury_fund_info.clone(),
-                    mint_info.clone(),
-                    rent_info.clone(),
-                    treasury_info.clone(),
-                    token_program_info.clone(),
-                ],
-            )?;
-
-            msg!("treasury fund account created");
+        if fund_address != *treasury_fund_info.key {
+            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
 
         let user_treasury = SimpleTreasury {

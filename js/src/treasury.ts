@@ -2,6 +2,10 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { Settings } from './';
 import * as borsh from 'borsh';
 import { SimpleTreasury } from './accounts';
+import {
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+    TOKEN_PROGRAM_ID
+} from '@solana/spl-token';
 
 export class Treasury {
     connection: Connection;
@@ -22,12 +26,8 @@ export class Treasury {
     }
 
     public async getSimpleTreasury(
-        authority: PublicKey
+        treasuryId: PublicKey
     ): Promise<SimpleTreasury> {
-        const treasuryId = await Treasury.simpleTreasuryId(
-            authority,
-            this.programId
-        );
         const account = await this.connection.getAccountInfo(treasuryId);
         if (account === null)
             throw new Error('Unable to find simple treasury account');
@@ -37,6 +37,16 @@ export class Treasury {
             SimpleTreasury,
             account.data
         );
+    }
+
+    public async getSimpleTreasuryByAuthority(
+        authority: PublicKey
+    ): Promise<SimpleTreasury> {
+        const treasuryId = await Treasury.simpleTreasuryId(
+            authority,
+            this.programId
+        );
+        return this.getSimpleTreasury(treasuryId);
     }
 
     static async settingsId(programId: PublicKey): Promise<PublicKey> {
@@ -62,12 +72,16 @@ export class Treasury {
 
     static async simpleTreasuryFundId(
         treasury: PublicKey,
-        programId: PublicKey
+        mint: PublicKey
     ): Promise<PublicKey> {
         return (
             await PublicKey.findProgramAddress(
-                [Buffer.from('simple fund'), treasury.toBuffer()],
-                programId
+                [
+                    treasury.toBuffer(),
+                    TOKEN_PROGRAM_ID.toBuffer(),
+                    mint.toBuffer()
+                ],
+                ASSOCIATED_TOKEN_PROGRAM_ID
             )
         )[0];
     }

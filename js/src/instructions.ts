@@ -7,7 +7,11 @@ import {
 } from '@solana/web3.js';
 import { Treasury } from './treasury';
 import * as borsh from 'borsh';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+    Token,
+    TOKEN_PROGRAM_ID
+} from '@solana/spl-token';
 
 export enum TreasuryInstructions {
     Initialize,
@@ -69,8 +73,7 @@ export class TreasuryInstruction {
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
-        const fund = await Treasury.simpleTreasuryFundId(treasury, programId);
-
+        const fund = await Treasury.simpleTreasuryFundId(treasury, mint);
         const keys: AccountMeta[] = [
             am(funder, true, true),
             am(authority, true, false),
@@ -96,6 +99,34 @@ export class TreasuryInstruction {
             programId,
             data: Buffer.from(instructionData)
         });
+    }
+
+    public static async CreateSimpleTreasuryAndFundAccount(
+        programId: PublicKey,
+        funder: PublicKey,
+        authority: PublicKey,
+        mint: PublicKey
+    ): Promise<TransactionInstruction[]> {
+        const settingsId = await Treasury.settingsId(programId);
+        const treasury = await Treasury.simpleTreasuryId(authority, programId);
+        const fund = await Treasury.simpleTreasuryFundId(treasury, mint);
+
+        return [
+            Token.createAssociatedTokenAccountInstruction(
+                ASSOCIATED_TOKEN_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
+                mint,
+                fund,
+                treasury,
+                funder
+            ),
+            await TreasuryInstruction.CreateSimpleTreasury(
+                programId,
+                funder,
+                authority,
+                mint
+            )
+        ];
     }
 }
 
