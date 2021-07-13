@@ -1,4 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
+import BN from 'bn.js';
 import * as borsh from 'borsh';
 
 export class Settings {
@@ -49,5 +50,47 @@ export class SimpleTreasury {
                 throw new Error('invalid mode');
         }
         this.authority = new PublicKey(params.authority);
+    }
+}
+
+export class VestedTreasury {
+    public authority: PublicKey;
+    public initialAmount: BN;
+    public start: Date;
+    public vestmentPeriod: BN;
+    public vestmentPercentage: number;
+    public withdrawn: BN;
+
+    static schema: borsh.Schema = new Map([
+        [
+            VestedTreasury,
+            {
+                kind: 'struct',
+                fields: [
+                    ['authority', [32]],
+                    ['initialAmount', 'u64'],
+                    ['start', 'u64'],
+                    ['vestmentPeriod', 'u64'],
+                    ['vestmentPercentage', 'u64'],
+                    ['withdrawn', 'u64']
+                ]
+            }
+        ]
+    ]);
+
+    constructor(params: {
+        authority: Uint8Array;
+        initialAmount: BN;
+        start: BN;
+        vestmentPeriod: BN;
+        vestmentPercentage: number;
+        withdrawn: BN;
+    }) {
+        this.authority = new PublicKey(params.authority);
+        this.initialAmount = params.initialAmount;
+        this.start = new Date(params.start.toNumber() * 1000);
+        this.vestmentPeriod = params.vestmentPeriod;
+        this.vestmentPercentage = params.vestmentPercentage;
+        this.withdrawn = params.withdrawn;
     }
 }

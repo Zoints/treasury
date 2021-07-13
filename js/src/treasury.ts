@@ -70,7 +70,7 @@ export class Treasury {
         )[0];
     }
 
-    static async simpleTreasuryFundId(
+    static async treasuryAssociatedAccount(
         treasury: PublicKey,
         mint: PublicKey
     ): Promise<PublicKey> {
@@ -82,6 +82,18 @@ export class Treasury {
                     mint.toBuffer()
                 ],
                 ASSOCIATED_TOKEN_PROGRAM_ID
+            )
+        )[0];
+    }
+
+    static async vestedTreasuryId(
+        authority: PublicKey,
+        programId: PublicKey
+    ): Promise<PublicKey> {
+        return (
+            await PublicKey.findProgramAddress(
+                [Buffer.from('vested'), authority.toBuffer()],
+                programId
             )
         )[0];
     }
