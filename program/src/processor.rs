@@ -181,7 +181,9 @@ impl Processor {
             return Err(TreasuryError::InvalidVestmentPeriod.into());
         }
 
-        if percentage < 1 || percentage > 1000 {
+        if percentage < VestedTreasury::MIN_PERCENTAGE
+            || percentage > VestedTreasury::MIN_PERCENTAGE
+        {
             return Err(TreasuryError::InvalidVestmentPercentage.into());
         }
 

@@ -77,6 +77,9 @@ pub struct VestedTreasury {
     pub withdrawn: u64,
 }
 impl VestedTreasury {
+    pub const MIN_PERCENTAGE: u16 = 1;
+    pub const MAX_PERCENTAGE: u16 = 10_000;
+
     pub fn program_address(authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"vested", &authority.to_bytes()], program_id)
     }
@@ -100,7 +103,7 @@ impl VestedTreasury {
         }
 
         let ticks = period as u64 / self.vestment_period;
-        let percentage = self.vestment_percentage as f64 / 1000f64;
+        let percentage = self.vestment_percentage as f64 / 10_000f64;
         let amount = (self.initial_amount as f64 * percentage) as u64 * ticks;
         if amount > self.initial_amount {
             self.initial_amount
@@ -131,5 +134,29 @@ mod tests {
             user_treasury,
             SimpleTreasury::try_from_slice(&user_treasury_data).unwrap()
         );
+    }
+
+    #[test]
+    pub fn test_vested_max() {
+        let vest = VestedTreasury {
+            authority: Pubkey::new_unique(),
+            initial_amount: 100_000,
+            start: 0,
+            vestment_period: 60,
+            vestment_percentage: 500, // 5%
+            withdrawn: 0,
+        };
+
+        assert_eq!(vest.maximum_available(-5000), 0);
+        assert_eq!(vest.maximum_available(0), 0);
+        assert_eq!(vest.maximum_available(1), 0);
+        assert_eq!(vest.maximum_available(59), 0);
+        assert_eq!(vest.maximum_available(60), 5_000);
+        assert_eq!(vest.maximum_available(61), 5_000);
+        assert_eq!(vest.maximum_available(119), 5_000);
+        assert_eq!(vest.maximum_available(120), 10_000);
+        assert_eq!(vest.maximum_available(1_199), 95_000);
+        assert_eq!(vest.maximum_available(1_200), 100_000);
+        assert_eq!(vest.maximum_available(5_000), 100_000);
     }
 }

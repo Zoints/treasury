@@ -50,8 +50,8 @@ pub enum TreasuryError {
     #[error("Mint is for the wrong token")]
     MintWrongToken,
 
-    /// Invalid Vestment Percentage (must be between 1 and 1000)
-    #[error("Invalid Vestment Percentage (must be between 1 and 1000)")]
+    /// Invalid Vestment Percentage (must be between 1 and 10,000)
+    #[error("Invalid Vestment Percentage (must be between 1 and 10,000)")]
     InvalidVestmentPercentage,
 
     /// Invalid Vestment Period (must be > 0)
