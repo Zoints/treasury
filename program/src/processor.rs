@@ -39,6 +39,9 @@ impl Processor {
             } => Self::process_create_vested_treasury(
                 program_id, accounts, amount, period, percentage,
             ),
+            TreasuryInstruction::WithdrawVested => {
+                Self::process_withdraw_vested(program_id, accounts)
+            }
         }
     }
 
@@ -97,6 +100,7 @@ impl Processor {
 
         let rent = Rent::from_account_info(rent_info)?;
 
+        Settings::verify_program_key(settings_info.key, program_id)?;
         let settings = Settings::try_from_slice(&settings_info.data.borrow())
             .map_err(|_| TreasuryError::NotInitialized)?;
 
@@ -181,6 +185,7 @@ impl Processor {
             return Err(TreasuryError::InvalidVestmentPercentage.into());
         }
 
+        Settings::verify_program_key(settings_info.key, program_id)?;
         let settings = Settings::try_from_slice(&settings_info.data.borrow())
             .map_err(|_| TreasuryError::NotInitialized)?;
         settings.verify_mint(mint_info.key)?;
@@ -199,12 +204,11 @@ impl Processor {
             program_id,
         )?;
 
-        let fund_address = spl_associated_token_account::get_associated_token_address(
+        if spl_associated_token_account::get_associated_token_address(
             treasury_info.key,
             mint_info.key,
-        );
-
-        if fund_address != *treasury_fund_info.key {
+        ) != *treasury_fund_info.key
+        {
             return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
 
@@ -235,5 +239,91 @@ impl Processor {
         treasury_info.data.borrow_mut().copy_from_slice(&data);
 
         Ok(())
+    }
+
+    pub fn process_withdraw_vested(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+        let iter = &mut accounts.iter();
+        let _funder_info = next_account_info(iter)?;
+        let authority_info = next_account_info(iter)?;
+        let recipient_info = next_account_info(iter)?;
+        let treasury_info = next_account_info(iter)?;
+        let treasury_fund_info = next_account_info(iter)?;
+        let mint_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let clock_info = next_account_info(iter)?;
+        let token_program_info = next_account_info(iter)?;
+
+        let clock = Clock::from_account_info(clock_info)?;
+
+        Settings::verify_program_key(settings_info.key, program_id)?;
+        let settings = Settings::try_from_slice(&settings_info.data.borrow())
+            .map_err(|_| TreasuryError::NotInitialized)?;
+        settings.verify_mint(mint_info.key)?;
+
+        if !authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
+        let treasury_seed = VestedTreasury::verify_program_address(
+            treasury_info.key,
+            authority_info.key,
+            program_id,
+        )?;
+        let mut treasury = VestedTreasury::try_from_slice(&treasury_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidTreasuryAddress)?;
+
+        if spl_associated_token_account::get_associated_token_address(
+            treasury_info.key,
+            mint_info.key,
+        ) != *treasury_fund_info.key
+        {
+            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
+        }
+        let fund = spl_token::state::Account::unpack(&treasury_fund_info.data.borrow())?;
+
+        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())?;
+        if recipient.owner != *authority_info.key {
+            return Err(TreasuryError::InvalidRecipient.into());
+        }
+        if recipient.mint != *mint_info.key {
+            return Err(TreasuryError::MintInvalid.into());
+        }
+
+        // calculate how much funds are available to be released
+        let available = treasury.maximum_available(clock.unix_timestamp) - treasury.withdrawn;
+        if available > 0 {
+            let payable = if available > fund.amount {
+                fund.amount
+            } else {
+                available
+            };
+
+            treasury.withdrawn += available;
+            treasury_info
+                .data
+                .borrow_mut()
+                .copy_from_slice(&treasury.try_to_vec()?);
+
+            invoke_signed(
+                &spl_token::instruction::transfer(
+                    &spl_token::id(),
+                    treasury_fund_info.key,
+                    recipient_info.key,
+                    treasury_info.key,
+                    &[],
+                    payable,
+                )?,
+                &[
+                    //funder_info.clone(),
+                    treasury_fund_info.clone(),
+                    recipient_info.clone(),
+                    treasury_info.clone(),
+                    token_program_info.clone(),
+                ],
+                &[&[b"vested", &authority_info.key.to_bytes(), &[treasury_seed]]],
+            )
+        } else {
+            Ok(())
+        }
     }
 }

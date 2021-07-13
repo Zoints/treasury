@@ -35,6 +35,7 @@ pub enum TreasuryInstruction {
         period: u64,
         percentage: u16,
     },
+    WithdrawVested,
 }
 
 #[cfg(test)]

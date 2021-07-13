@@ -59,8 +59,12 @@ pub enum TreasuryError {
     InvalidVestmentPeriod,
 
     /// Invalid Vestment Amount (must be > 0)
-    #[error("Invalid Vestment Invalid Vestment Amount (must be > 0)")]
+    #[error("Invalid Vestment Amount (must be > 0)")]
     InvalidVestmentAmount,
+
+    /// Invalid Recipient
+    #[error("Invalid Recipient")]
+    InvalidRecipient,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {

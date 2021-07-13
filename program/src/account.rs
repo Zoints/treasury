@@ -92,6 +92,22 @@ impl VestedTreasury {
         }
         Ok(seed)
     }
+
+    pub fn maximum_available(&self, now: UnixTimestamp) -> u64 {
+        let period = now - self.start;
+        if period <= 0 {
+            return 0;
+        }
+
+        let ticks = period as u64 / self.vestment_period;
+        let percentage = self.vestment_percentage as f64 / 1000f64;
+        let amount = (self.initial_amount as f64 * percentage) as u64 * ticks;
+        if amount > self.initial_amount {
+            self.initial_amount
+        } else {
+            amount
+        }
+    }
 }
 
 #[cfg(test)]
