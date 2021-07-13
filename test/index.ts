@@ -116,6 +116,50 @@ const treasury = new Treasury(connection, programId);
     const treasury1 = new Keypair();
     await launch_treasury(treasury1);
 
+    const vested_authority = new Keypair();
+    try {
+        const vested = await Treasury.vestedTreasuryId(
+            vested_authority.publicKey,
+            programId
+        );
+        const vested_assoc = await Treasury.treasuryAssociatedAccount(
+            vested,
+            token_id.publicKey
+        );
+        const ins =
+            await TreasuryInstruction.CreateVestedTreasuryAndFundAccount(
+                programId,
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey,
+                100_000n,
+                1,
+                1000
+            );
+
+        ins.push(
+            Token.createMintToInstruction(
+                TOKEN_PROGRAM_ID,
+                token_id.publicKey,
+                vested_assoc,
+                mint_authority.publicKey,
+                [],
+                100_000
+            )
+        );
+
+        const tx = new Transaction().add(...ins);
+        const sig = await sendAndConfirmTransaction(connection, tx, [
+            funder,
+            vested_authority,
+            mint_authority
+        ]);
+
+        console.log(`vested treasury created: ${sig}`);
+    } catch (e) {
+        console.log(e);
+    }
+
     console.log(`verify account data`);
 
     try {
@@ -146,7 +190,7 @@ const treasury = new Treasury(connection, programId);
             treasury1.publicKey,
             programId
         );
-        const fund = await Treasury.simpleTreasuryFundId(
+        const fund = await Treasury.treasuryAssociatedAccount(
             treasuryId,
             token_id.publicKey
         );

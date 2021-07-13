@@ -47,7 +47,7 @@ export class VestedSchema {
 
     static schema: borsh.Schema = new Map([
         [
-            SimpleSchema,
+            VestedSchema,
             {
                 kind: 'struct',
                 fields: [
@@ -206,6 +206,39 @@ export class TreasuryInstruction {
             programId,
             data: Buffer.from(instructionData)
         });
+    }
+
+    public static async CreateVestedTreasuryAndFundAccount(
+        programId: PublicKey,
+        funder: PublicKey,
+        authority: PublicKey,
+        mint: PublicKey,
+        amount: bigint,
+        period: number,
+        percentage: number
+    ): Promise<TransactionInstruction[]> {
+        const treasury = await Treasury.vestedTreasuryId(authority, programId);
+        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
+
+        return [
+            Token.createAssociatedTokenAccountInstruction(
+                ASSOCIATED_TOKEN_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
+                mint,
+                fund,
+                treasury,
+                funder
+            ),
+            await TreasuryInstruction.CreateVestedTreasury(
+                programId,
+                funder,
+                authority,
+                mint,
+                amount,
+                period,
+                percentage
+            )
+        ];
     }
 
     public static async WithdrawVested(

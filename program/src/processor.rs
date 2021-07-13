@@ -182,7 +182,7 @@ impl Processor {
         }
 
         if percentage < VestedTreasury::MIN_PERCENTAGE
-            || percentage > VestedTreasury::MIN_PERCENTAGE
+            || percentage > VestedTreasury::MAX_PERCENTAGE
         {
             return Err(TreasuryError::InvalidVestmentPercentage.into());
         }
