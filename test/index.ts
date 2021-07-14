@@ -242,6 +242,16 @@ const treasury = new Treasury(connection, programId);
                 token_id.publicKey
             )
         );
+        let vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
+        );
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
+        );
         const sig = await sendAndConfirmTransaction(connection, tx, [
             funder,
             vested_authority
@@ -255,6 +265,17 @@ const treasury = new Treasury(connection, programId);
                 vested_authority.publicKey,
                 token_id.publicKey
             )
+        );
+
+        vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
+        );
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
         );
         const sig2 = await sendAndConfirmTransaction(connection, tx2, [
             funder,
@@ -272,10 +293,16 @@ const treasury = new Treasury(connection, programId);
         const acc = await token.getAccountInfo(vested_assoc);
         console.log(`Account Money: ${acc.amount}`);
 
-        const vt = await treasury.getVestedTreasuryByAuthority(
+        vt = await treasury.getVestedTreasuryByAuthority(
             vested_authority.publicKey
         );
-        console.log(`Withdrawn: ${vt.withdrawn.toString()}`);
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
+        );
     } catch (e) {
         console.log(e);
     }

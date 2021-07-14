@@ -93,4 +93,23 @@ export class VestedTreasury {
         this.vestmentPercentage = params.vestmentPercentage;
         this.withdrawn = params.withdrawn;
     }
+
+    public maximum_available(now: Date): BN {
+        const period =
+            Math.floor(now.getTime() / 1000) -
+            Math.floor(this.start.getTime() / 1000);
+        if (period <= 0) {
+            return new BN(0);
+        }
+
+        const ticks = new BN(period).div(this.vestmentPeriod);
+        const percentage = this.vestmentPercentage / 10000;
+        const amount = this.initialAmount.muln(percentage).mul(ticks);
+        return amount.gt(this.initialAmount) ? this.initialAmount : amount;
+    }
+
+    public available(now: Date): BN {
+        const available = this.maximum_available(now).sub(this.withdrawn);
+        return available.ltn(0) ? new BN(0) : available;
+    }
 }
