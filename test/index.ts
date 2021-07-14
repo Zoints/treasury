@@ -1,4 +1,9 @@
-import { Token, TOKEN_PROGRAM_ID, MintLayout } from '@solana/spl-token';
+import {
+    Token,
+    TOKEN_PROGRAM_ID,
+    MintLayout,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+} from '@solana/spl-token';
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,
@@ -133,7 +138,7 @@ const treasury = new Treasury(connection, programId);
                 vested_authority.publicKey,
                 token_id.publicKey,
                 100_000n,
-                1,
+                10,
                 1000
             );
 
@@ -145,6 +150,24 @@ const treasury = new Treasury(connection, programId);
                 mint_authority.publicKey,
                 [],
                 100_000
+            )
+        );
+
+        const authority_associated = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            token_id.publicKey,
+            vested_authority.publicKey
+        );
+
+        ins.push(
+            Token.createAssociatedTokenAccountInstruction(
+                ASSOCIATED_TOKEN_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
+                token_id.publicKey,
+                authority_associated,
+                vested_authority.publicKey,
+                funder.publicKey
             )
         );
 
@@ -206,6 +229,48 @@ const treasury = new Treasury(connection, programId);
 
         const treasuryFund = await token.getAccountInfo(fund);
         console.log(`Fund funds: ${treasuryFund.amount}`);
+    } catch (e) {
+        console.log(e);
+    }
+
+    try {
+        const tx = new Transaction().add(
+            await TreasuryInstruction.WithdrawVested(
+                programId,
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey
+            )
+        );
+        const sig = await sendAndConfirmTransaction(connection, tx, [
+            funder,
+            vested_authority
+        ]);
+        console.log(`Withdraw Vested: ${sig}`);
+
+        const tx2 = new Transaction().add(
+            await TreasuryInstruction.WithdrawVested(
+                programId,
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey
+            )
+        );
+        const sig2 = await sendAndConfirmTransaction(connection, tx2, [
+            funder,
+            vested_authority
+        ]);
+        console.log(`Withdraw Vested (again): ${sig2}`);
+
+        const vested_assoc = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            token_id.publicKey,
+            vested_authority.publicKey
+        );
+
+        const acc = await token.getAccountInfo(vested_assoc);
+        console.log(`Account Money: ${acc.amount}`);
     } catch (e) {
         console.log(e);
     }

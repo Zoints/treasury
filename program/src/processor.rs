@@ -281,9 +281,11 @@ impl Processor {
         {
             return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
-        let fund = spl_token::state::Account::unpack(&treasury_fund_info.data.borrow())?;
+        let fund = spl_token::state::Account::unpack(&treasury_fund_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
 
-        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())?;
+        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidRecipientAccount)?;
         if recipient.owner != *authority_info.key {
             return Err(TreasuryError::InvalidRecipient.into());
         }

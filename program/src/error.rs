@@ -34,6 +34,10 @@ pub enum TreasuryError {
     #[error("Invalid Treasury Fund Address")]
     InvalidTreasuryFundAddress,
 
+    /// Invalid Treasury Fund Account
+    #[error("Invalid Treasury Fund Account")]
+    InvalidTreasuryFundAccount,
+
     /// Treasury Already Exists
     #[error("Treasury Already Exists")]
     TreasuryAlreadyExists,
@@ -65,6 +69,10 @@ pub enum TreasuryError {
     /// Invalid Recipient
     #[error("Invalid Recipient")]
     InvalidRecipient,
+
+    /// Invalid Recipient Account
+    #[error("Invalid Recipient Account")]
+    InvalidRecipientAccount,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {
