@@ -271,6 +271,11 @@ const treasury = new Treasury(connection, programId);
 
         const acc = await token.getAccountInfo(vested_assoc);
         console.log(`Account Money: ${acc.amount}`);
+
+        const vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
+        );
+        console.log(`Withdrawn: ${vt.withdrawn.toString()}`);
     } catch (e) {
         console.log(e);
     }

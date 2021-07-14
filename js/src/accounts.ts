@@ -71,7 +71,7 @@ export class VestedTreasury {
                     ['initialAmount', 'u64'],
                     ['start', 'u64'],
                     ['vestmentPeriod', 'u64'],
-                    ['vestmentPercentage', 'u64'],
+                    ['vestmentPercentage', 'u16'],
                     ['withdrawn', 'u64']
                 ]
             }

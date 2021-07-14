@@ -1,7 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Settings } from './';
 import * as borsh from 'borsh';
-import { SimpleTreasury } from './accounts';
+import { SimpleTreasury, VestedTreasury } from './accounts';
 import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     TOKEN_PROGRAM_ID
@@ -47,6 +47,30 @@ export class Treasury {
             this.programId
         );
         return this.getSimpleTreasury(treasuryId);
+    }
+
+    public async getVestedTreasury(
+        treasuryId: PublicKey
+    ): Promise<VestedTreasury> {
+        const account = await this.connection.getAccountInfo(treasuryId);
+        if (account === null)
+            throw new Error('Unable to find vested treasury account');
+
+        return borsh.deserialize(
+            VestedTreasury.schema,
+            VestedTreasury,
+            account.data
+        );
+    }
+
+    public async getVestedTreasuryByAuthority(
+        authority: PublicKey
+    ): Promise<VestedTreasury> {
+        const treasuryId = await Treasury.vestedTreasuryId(
+            authority,
+            this.programId
+        );
+        return this.getVestedTreasury(treasuryId);
     }
 
     static async settingsId(programId: PublicKey): Promise<PublicKey> {
