@@ -7,39 +7,38 @@ import {
 import {
     BPF_LOADER_PROGRAM_ID,
     BpfLoader,
-    Account,
     Keypair,
     LAMPORTS_PER_SOL,
-    Signer,
     Transaction,
-    TransactionInstruction,
-    AccountMeta,
     PublicKey,
-    SYSVAR_RENT_PUBKEY,
     sendAndConfirmTransaction,
     SystemProgram
 } from '@solana/web3.js';
 import { Connection } from '@solana/web3.js';
 import * as fs from 'fs';
+import {
+    SimpleTreasuryMode,
+    Treasury,
+    TreasuryInstruction
+} from '@zoints/treasury';
 
 const connection = new Connection('http://localhost:8899');
 const funder = new Keypair();
 
 const token_id = new Keypair();
-const fee_authority = new Keypair();
 
 const mint_authority = new Keypair();
 const deploy_key = new Keypair();
 const programId = deploy_key.publicKey;
 
-const randomSurplus = 1234;
-
 const token = new Token(
     connection,
     token_id.publicKey,
     TOKEN_PROGRAM_ID,
-    new Account(funder.secretKey)
+    funder
 );
+
+const treasury = new Treasury(connection, programId);
 
 (async () => {
     console.log(`Funding ${funder.publicKey.toBase58()} with 20 SOL`);
@@ -97,432 +96,231 @@ const token = new Token(
         token_id
     ]);
 
+    const funderAssoc = await token.getOrCreateAssociatedAccountInfo(
+        funder.publicKey
+    );
+    await token.mintTo(funderAssoc.address, mint_authority, [], 100_000);
+
     console.log(`Attempting to initialize`);
 
-    const fee_recipient = await token.createAssociatedTokenAccount(
-        fee_authority.publicKey
-    );
     const settings_id = (
         await PublicKey.findProgramAddress([Buffer.from('settings')], programId)
     )[0];
 
-    await (async () => {
-        const keys: AccountMeta[] = [
-            { pubkey: funder.publicKey, isSigner: true, isWritable: false },
-            { pubkey: token_id.publicKey, isSigner: false, isWritable: false },
-            {
-                pubkey: fee_authority.publicKey,
-                isSigner: true,
-                isWritable: false
-            },
-            { pubkey: fee_recipient, isSigner: false, isWritable: false },
-            {
-                pubkey: settings_id,
-                isSigner: false,
-                isWritable: true
-            },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false
-            }
-        ];
-        const data = Buffer.alloc(1 + 8 + 8, 0);
-        data.writeBigUInt64LE(1_000n, 1); // user fee
-        data.writeBigUInt64LE(5_000n, 9); // zoints fee
+    const initTx = new Transaction().add(
+        await TreasuryInstruction.Initialize(
+            programId,
+            funder.publicKey,
+            token_id.publicKey
+        )
+    );
 
-        const t = new Transaction().add(
-            new TransactionInstruction({
-                keys,
+    sig = await sendAndConfirmTransaction(connection, initTx, [funder]);
+    console.log(`Initialized: ${sig}`);
+
+    const treasury1 = new Keypair();
+    await launch_treasury(treasury1);
+
+    const vested_authority = new Keypair();
+    try {
+        const vested = await Treasury.vestedTreasuryId(
+            vested_authority.publicKey,
+            programId
+        );
+        const vested_assoc = await Treasury.treasuryAssociatedAccount(
+            vested,
+            token_id.publicKey
+        );
+        const ins =
+            await TreasuryInstruction.CreateVestedTreasuryAndFundAccount(
                 programId,
-                data
-            })
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey,
+                100_000n,
+                10,
+                1000
+            );
+
+        ins.push(
+            Token.createMintToInstruction(
+                TOKEN_PROGRAM_ID,
+                token_id.publicKey,
+                vested_assoc,
+                mint_authority.publicKey,
+                [],
+                100_000
+            )
         );
 
-        sig = await sendAndConfirmTransaction(connection, t, [
+        const authority_associated = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            token_id.publicKey,
+            vested_authority.publicKey
+        );
+
+        ins.push(
+            Token.createAssociatedTokenAccountInstruction(
+                ASSOCIATED_TOKEN_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
+                token_id.publicKey,
+                authority_associated,
+                vested_authority.publicKey,
+                funder.publicKey
+            )
+        );
+
+        const tx = new Transaction().add(...ins);
+        const sig = await sendAndConfirmTransaction(connection, tx, [
             funder,
-            fee_authority
+            vested_authority,
+            mint_authority
         ]);
-        console.log(`Initialized: ${sig}`);
-    })();
 
-    await update_fee(20_000n, 50_000n, settings_id, fee_recipient);
-
-    const user_1 = new Keypair();
-    await launch_user_treasury(user_1, settings_id, fee_recipient);
-
-    const zoints_1 = new Keypair();
-    const zoints_1_keyword = Buffer.from('test-community');
-    await launch_zoints_treasury(
-        zoints_1,
-        zoints_1_keyword,
-        settings_id,
-        fee_recipient
-    );
+        console.log(`vested treasury created: ${sig}`);
+    } catch (e) {
+        console.log(e);
+    }
 
     console.log(`verify account data`);
 
-    const settings = await connection.getAccountInfo(settings_id);
-    if (settings === null) {
-        console.log(`!!! settings account is missing !!!`);
-    } else {
-        const s_token = new PublicKey(settings.data.slice(0, 32));
-        const s_fee_recipient = new PublicKey(settings.data.slice(32, 64));
-        const s_price_authority = new PublicKey(settings.data.slice(64, 96));
-        const s_user_fee = settings.data.slice(96, 104).readBigUInt64LE();
-        const s_zoints_fee = settings.data.slice(104, 112).readBigUInt64LE();
-
-        if (!s_token.equals(token_id.publicKey)) {
+    try {
+        const settings = await treasury.getSettings();
+        if (!settings.token.equals(token_id.publicKey)) {
             console.log(
-                `settings.token mismatch ${s_token.toBase58()} ${token_id.publicKey.toBase58()}`
+                `settings.token mismatch ${settings.token.toBase58()} ${token_id.publicKey.toBase58()}`
             );
         }
-
-        if (!s_fee_recipient.equals(fee_recipient)) {
-            console.log(
-                `settings.fee_recipient mismatch ${s_fee_recipient.toBase58()} ${fee_recipient.toBase58()}`
-            );
-        }
-
-        if (!s_price_authority.equals(fee_authority.publicKey)) {
-            console.log(
-                `settings.price_authority mismatch ${s_price_authority.toBase58()} ${fee_authority.publicKey.toBase58()}`
-            );
-        }
-
-        if (s_user_fee != 20_000n) {
-            console.log(`settings.user_free mismatch ${s_user_fee} 20_000n`);
-        }
-        if (s_zoints_fee != 50_000n) {
-            console.log(`settings.user_free mismatch ${s_zoints_fee} 50_000n`);
-        }
+    } catch (e) {
+        console.log(e);
     }
 
-    const user_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('user'), user_1.publicKey.toBuffer()],
-        programId
-    );
-
-    const user = await connection.getAccountInfo(user_treasury[0]);
-    if (user === null) {
-        console.log(`!!! user treasury account missing !!!`);
-    } else {
-        const u_authority = new PublicKey(user.data.slice(0, 32));
-        if (!u_authority.equals(user_1.publicKey)) {
+    try {
+        const simple = await treasury.getSimpleTreasuryByAuthority(
+            treasury1.publicKey
+        );
+        if (simple.mode !== SimpleTreasuryMode.Locked) {
+            console.log(`simple.mode mismatch`);
+        }
+        if (!simple.authority.equals(treasury1.publicKey)) {
             console.log(
-                `user.authority mismatch ${u_authority.toBase58()} ${user_1.publicKey.toBase58()}`
+                `simple.authority mismatch ${simple.authority.toBase58()} ${treasury1.publicKey.toBase58()}`
             );
         }
 
-        const u_assoc_address = await Token.getAssociatedTokenAddress(
+        const treasuryId = await Treasury.simpleTreasuryId(
+            treasury1.publicKey,
+            programId
+        );
+        const fund = await Treasury.treasuryAssociatedAccount(
+            treasuryId,
+            token_id.publicKey
+        );
+
+        const transfer = await token.transfer(
+            funderAssoc.address,
+            fund,
+            funder,
+            [],
+            100_000
+        );
+        console.log(`Transferred ${transfer}`);
+
+        const treasuryFund = await token.getAccountInfo(fund);
+        console.log(`Fund funds: ${treasuryFund.amount}`);
+    } catch (e) {
+        console.log(e);
+    }
+
+    try {
+        const tx = new Transaction().add(
+            await TreasuryInstruction.WithdrawVested(
+                programId,
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey
+            )
+        );
+        let vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
+        );
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
+        );
+        const sig = await sendAndConfirmTransaction(connection, tx, [
+            funder,
+            vested_authority
+        ]);
+        console.log(`Withdraw Vested: ${sig}`);
+
+        const tx2 = new Transaction().add(
+            await TreasuryInstruction.WithdrawVested(
+                programId,
+                funder.publicKey,
+                vested_authority.publicKey,
+                token_id.publicKey
+            )
+        );
+
+        vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
+        );
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
+        );
+        const sig2 = await sendAndConfirmTransaction(connection, tx2, [
+            funder,
+            vested_authority
+        ]);
+        console.log(`Withdraw Vested (again): ${sig2}`);
+
+        const vested_assoc = await Token.getAssociatedTokenAddress(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
             token_id.publicKey,
-            user_1.publicKey
+            vested_authority.publicKey
         );
-        const u_assoc = await token.getAccountInfo(u_assoc_address);
 
-        if (u_assoc.amount.toNumber() != randomSurplus) {
-            console.log(
-                `user assoc balance wrong ${u_assoc.amount.toNumber()}`
-            );
-        }
-    }
+        const acc = await token.getAccountInfo(vested_assoc);
+        console.log(`Account Money: ${acc.amount}`);
 
-    const zoints_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('zoints'), zoints_1_keyword],
-        programId
-    );
-
-    const zoints = await connection.getAccountInfo(zoints_treasury[0]);
-    if (zoints === null) {
-        console.log(`!!! zoints treasury account missing !!!`);
-    } else {
-        const z_authority = new PublicKey(zoints.data.slice(0, 32));
-        if (!z_authority.equals(zoints_1.publicKey)) {
-            console.log(
-                `zoints.authority mismatch ${z_authority.toBase58()} ${zoints_1.publicKey.toBase58()}`
-            );
-        }
-
-        const z_assoc_address = await Token.getAssociatedTokenAddress(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
-            token_id.publicKey,
-            zoints_1.publicKey
+        vt = await treasury.getVestedTreasuryByAuthority(
+            vested_authority.publicKey
         );
-        const z_assoc = await token.getAccountInfo(z_assoc_address);
-
-        if (z_assoc.amount.toNumber() != randomSurplus) {
-            console.log(
-                `zoints assoc balance wrong ${z_assoc.amount.toNumber()}`
-            );
-        }
+        console.log(
+            `VT: Available ${vt
+                .available(new Date())
+                .toString()}, Max Available ${vt
+                .maximum_available(new Date())
+                .toString()}, Withdrawn ${vt.withdrawn.toString()}`
+        );
+    } catch (e) {
+        console.log(e);
     }
 })();
 
-async function update_fee(
-    fee_user: bigint,
-    fee_zoints: bigint,
-    settings_id: PublicKey,
-    fee_recipient: PublicKey
-) {
-    const keys: AccountMeta[] = [
-        { pubkey: funder.publicKey, isSigner: true, isWritable: false },
-        {
-            pubkey: fee_authority.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        { pubkey: fee_recipient, isSigner: false, isWritable: false },
-        {
-            pubkey: settings_id,
-            isSigner: false,
-            isWritable: true
-        },
-        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false
-        }
-    ];
-    const data = Buffer.alloc(1 + 8 + 8, 3);
-    data.writeBigUInt64LE(fee_user, 1); // user fee
-    data.writeBigUInt64LE(fee_zoints, 9); // zoints fee
-
-    const t = new Transaction().add(
-        new TransactionInstruction({
-            keys,
+async function launch_treasury(authority: Keypair) {
+    const tx = new Transaction().add(
+        ...(await TreasuryInstruction.CreateSimpleTreasuryAndFundAccount(
             programId,
-            data
-        })
+            funder.publicKey,
+            authority.publicKey,
+            token_id.publicKey
+        ))
     );
 
-    const sig = await sendAndConfirmTransaction(connection, t, [
+    const sig = await sendAndConfirmTransaction(connection, tx, [
         funder,
-        fee_authority
+        authority
     ]);
-    console.log(`Updated fees: ${sig}`);
-}
-
-async function launch_zoints_treasury(
-    owner: Keypair,
-    name: Buffer,
-    settings_id: PublicKey,
-    fee_recipient: PublicKey
-) {
-    const zoints_associated = await token.createAssociatedTokenAccount(
-        owner.publicKey
-    );
-    await token.mintTo(
-        zoints_associated,
-        new Account(mint_authority.secretKey),
-        [],
-        50_000 + randomSurplus
-    );
-
-    const zoints_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('zoints'), name],
-        programId
-    );
-
-    const zoints_treasury_associated = await PublicKey.findProgramAddress(
-        [
-            zoints_treasury[0].toBuffer(),
-            TOKEN_PROGRAM_ID.toBuffer(),
-            token_id.publicKey.toBuffer()
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: funder.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: owner.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: zoints_associated,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: zoints_treasury[0],
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: token_id.publicKey,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: settings_id,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: fee_recipient,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: SYSVAR_RENT_PUBKEY,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false
-        }
-    ];
-    const prefix = Buffer.alloc(1 + 4, 0);
-    prefix[0] = 2;
-    prefix.writeUInt32LE(name.length, 1);
-    const data = Buffer.concat([prefix, name]);
-
-    const t = new Transaction()
-        .add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        )
-        .add(
-            Token.createAssociatedTokenAccountInstruction(
-                ASSOCIATED_TOKEN_PROGRAM_ID,
-                TOKEN_PROGRAM_ID,
-                token_id.publicKey,
-                zoints_treasury_associated[0],
-                zoints_treasury[0],
-                funder.publicKey
-            )
-        );
-
-    const sig = await sendAndConfirmTransaction(connection, t, [funder, owner]);
-    console.log(`Zoints Treasury launched: ${sig}`);
-}
-
-async function launch_user_treasury(
-    user: Keypair,
-    settings_id: PublicKey,
-    fee_recipient: PublicKey
-) {
-    const user_associated = await token.createAssociatedTokenAccount(
-        user.publicKey
-    );
-    await token.mintTo(
-        user_associated,
-        new Account(mint_authority.secretKey),
-        [],
-        20_000 + randomSurplus
-    );
-
-    const user_treasury = await PublicKey.findProgramAddress(
-        [Buffer.from('user'), user.publicKey.toBuffer()],
-        programId
-    );
-    const user_treasury_associated = await PublicKey.findProgramAddress(
-        [
-            user_treasury[0].toBuffer(),
-            TOKEN_PROGRAM_ID.toBuffer(),
-            token_id.publicKey.toBuffer()
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: funder.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: user.publicKey,
-            isSigner: true,
-            isWritable: false
-        },
-        {
-            pubkey: user_associated,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: user_treasury[0],
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: token_id.publicKey,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: settings_id,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: fee_recipient,
-            isSigner: false,
-            isWritable: true
-        },
-        {
-            pubkey: SYSVAR_RENT_PUBKEY,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false
-        }
-    ];
-    const data = Buffer.alloc(1, 1);
-
-    const t = new Transaction()
-        .add(
-            new TransactionInstruction({
-                keys,
-                programId,
-                data
-            })
-        )
-        .add(
-            Token.createAssociatedTokenAccountInstruction(
-                ASSOCIATED_TOKEN_PROGRAM_ID,
-                TOKEN_PROGRAM_ID,
-                token_id.publicKey,
-                user_treasury_associated[0],
-                user_treasury[0],
-                funder.publicKey
-            )
-        );
-
-    const sig = await sendAndConfirmTransaction(connection, t, [funder, user]);
-    console.log(`User Treasury launched: ${sig}`);
+    console.log(`Treasury launched: ${sig}`);
 }

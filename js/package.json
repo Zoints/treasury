@@ -1,0 +1,44 @@
+{
+  "name": "@zoints/treasury",
+  "version": "0.5.0",
+  "description": "The JavaScript library for the treasury",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "prepublish": "npm run build",
+    "build": "tsc -p .",
+    "lint": "eslint src",
+    "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
+    "prettier-ci": "prettier --config .prettierrc 'src/**/*.ts' --list-different",
+    "test": "mocha -r ts-node/register test/**/*.test.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zoints/treasury.git",
+    "directory": "js"
+  },
+  "author": "Who Soup",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@solana/spl-token": "^0.1.6",
+    "@solana/web3.js": "^1.20.0",
+    "bn.js": "^5.2.0",
+    "borsh": "^0.4.0"
+  },
+  "devDependencies": {
+    "@tsconfig/recommended": "^1.0.1",
+    "@types/bn.js": "^4.11.6",
+    "@types/bs58": "^4.0.1",
+    "@types/chai": "^4.2.19",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^15.6.1",
+    "@typescript-eslint/eslint-plugin": "^4.25.0",
+    "@typescript-eslint/parser": "^4.25.0",
+    "chai": "^4.3.4",
+    "eslint": "^7.27.0",
+    "mocha": "^9.0.1",
+    "prettier": "^2.3.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.2.4"
+  }
+}
