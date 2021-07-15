@@ -102,7 +102,7 @@ export class TreasuryInstruction {
         });
     }
 
-    public static async CreateSimpleTreasury(
+    private static async CreateSimpleTreasury(
         programId: PublicKey,
         funder: PublicKey,
         authority: PublicKey,
@@ -171,7 +171,7 @@ export class TreasuryInstruction {
         ];
     }
 
-    public static async CreateVestedTreasury(
+    private static async CreateVestedTreasury(
         programId: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
