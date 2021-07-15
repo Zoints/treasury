@@ -4,7 +4,7 @@ use solana_program::{
     clock::Clock,
     entrypoint::ProgramResult,
     msg,
-    program::invoke_signed,
+    program::{invoke, invoke_signed},
     program_pack::Pack,
     pubkey::Pubkey,
     system_instruction::{self},
@@ -165,7 +165,6 @@ impl Processor {
         let funder_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let treasury_fund_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
@@ -196,24 +195,6 @@ impl Processor {
             return Err(TreasuryError::TreasuryAlreadyExists.into());
         }
 
-        if !authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
-        }
-
-        let treasury_seed = VestedTreasury::verify_program_address(
-            treasury_info.key,
-            authority_info.key,
-            program_id,
-        )?;
-
-        if spl_associated_token_account::get_associated_token_address(
-            treasury_info.key,
-            mint_info.key,
-        ) != *treasury_fund_info.key
-        {
-            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
-        }
-
         let vested_treasury = VestedTreasury {
             authority: *authority_info.key,
             initial_amount: amount,
@@ -226,7 +207,7 @@ impl Processor {
 
         let lamports = rent.minimum_balance(data.len());
         let space = data.len() as u64;
-        invoke_signed(
+        invoke(
             &system_instruction::create_account(
                 funder_info.key,
                 treasury_info.key,
@@ -235,7 +216,6 @@ impl Processor {
                 program_id,
             ),
             &[funder_info.clone(), treasury_info.clone()],
-            &[&[b"vested", &authority_info.key.to_bytes(), &[treasury_seed]]],
         )?;
 
         treasury_info.data.borrow_mut().copy_from_slice(&data);
@@ -249,7 +229,8 @@ impl Processor {
         let authority_info = next_account_info(iter)?;
         let recipient_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let treasury_fund_info = next_account_info(iter)?;
+        let fund_authority_info = next_account_info(iter)?;
+        let fund_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let clock_info = next_account_info(iter)?;
@@ -266,22 +247,27 @@ impl Processor {
             return Err(TreasuryError::MissingAuthoritySignature.into());
         }
 
-        let treasury_seed = VestedTreasury::verify_program_address(
-            treasury_info.key,
-            authority_info.key,
-            program_id,
-        )?;
+        if *treasury_info.owner != *program_id {
+            return Err(TreasuryError::InvalidTreasuryOwner.into());
+        }
+
         let mut treasury = VestedTreasury::try_from_slice(&treasury_info.data.borrow())
             .map_err(|_| TreasuryError::InvalidTreasuryAddress)?;
 
-        if spl_associated_token_account::get_associated_token_address(
+        let fund_authority_seed = VestedTreasury::verify_fund_authority_address(
+            fund_authority_info.key,
             treasury_info.key,
+            program_id,
+        )?;
+
+        if spl_associated_token_account::get_associated_token_address(
+            fund_authority_info.key,
             mint_info.key,
-        ) != *treasury_fund_info.key
+        ) != *fund_info.key
         {
             return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
-        let fund = spl_token::state::Account::unpack(&treasury_fund_info.data.borrow())
+        let fund = spl_token::state::Account::unpack(&fund_info.data.borrow())
             .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
 
         let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())
@@ -311,20 +297,24 @@ impl Processor {
             invoke_signed(
                 &spl_token::instruction::transfer(
                     &spl_token::id(),
-                    treasury_fund_info.key,
+                    fund_info.key,
                     recipient_info.key,
-                    treasury_info.key,
+                    fund_authority_info.key,
                     &[],
                     payable,
                 )?,
                 &[
                     //funder_info.clone(),
-                    treasury_fund_info.clone(),
+                    fund_info.clone(),
                     recipient_info.clone(),
                     treasury_info.clone(),
                     token_program_info.clone(),
                 ],
-                &[&[b"vested", &authority_info.key.to_bytes(), &[treasury_seed]]],
+                &[&[
+                    b"vested authority",
+                    &treasury_info.key.to_bytes(),
+                    &[fund_authority_seed],
+                ]],
             )
         } else {
             Ok(())
