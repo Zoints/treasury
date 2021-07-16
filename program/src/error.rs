@@ -30,6 +30,14 @@ pub enum TreasuryError {
     #[error("Invalid Treasury Address")]
     InvalidTreasuryAddress,
 
+    /// Invalid Treasury Owner
+    #[error("Invalid Treasury Owner")]
+    InvalidTreasuryOwner,
+
+    /// Invalid Treasury Fund Authority Address
+    #[error("Invalid Treasury Fund Authority Address")]
+    InvalidTreasuryFundAuthorityAddress,
+
     /// Invalid Treasury Fund Address
     #[error("Invalid Treasury Fund Address")]
     InvalidTreasuryFundAddress,

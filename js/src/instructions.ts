@@ -102,7 +102,7 @@ export class TreasuryInstruction {
         });
     }
 
-    public static async CreateSimpleTreasury(
+    private static async CreateSimpleTreasury(
         programId: PublicKey,
         funder: PublicKey,
         authority: PublicKey,
@@ -110,7 +110,10 @@ export class TreasuryInstruction {
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
-        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
+        const fund = await Treasury.simpleTreasuryAssociatedAccount(
+            treasury,
+            mint
+        );
         const keys: AccountMeta[] = [
             am(funder, true, true),
             am(authority, true, false),
@@ -145,7 +148,10 @@ export class TreasuryInstruction {
         mint: PublicKey
     ): Promise<TransactionInstruction[]> {
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
-        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
+        const fund = await Treasury.simpleTreasuryAssociatedAccount(
+            treasury,
+            mint
+        );
 
         return [
             Token.createAssociatedTokenAccountInstruction(
@@ -165,9 +171,10 @@ export class TreasuryInstruction {
         ];
     }
 
-    public static async CreateVestedTreasury(
+    private static async CreateVestedTreasury(
         programId: PublicKey,
         funder: PublicKey,
+        treasury: PublicKey,
         authority: PublicKey,
         mint: PublicKey,
         amount: bigint,
@@ -175,14 +182,11 @@ export class TreasuryInstruction {
         percentage: number
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
-        const treasury = await Treasury.vestedTreasuryId(authority, programId);
-        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
 
         const keys: AccountMeta[] = [
             am(funder, true, true),
-            am(authority, true, false),
-            am(treasury, false, true),
-            am(fund, false, true),
+            am(authority, false, false),
+            am(treasury, true, true),
             am(mint, false, false),
             am(settingsId, false, false),
             am(SYSVAR_RENT_PUBKEY, false, false),
@@ -211,27 +215,32 @@ export class TreasuryInstruction {
     public static async CreateVestedTreasuryAndFundAccount(
         programId: PublicKey,
         funder: PublicKey,
+        treasury: PublicKey,
         authority: PublicKey,
         mint: PublicKey,
         amount: bigint,
         period: number,
         percentage: number
     ): Promise<TransactionInstruction[]> {
-        const treasury = await Treasury.vestedTreasuryId(authority, programId);
-        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
+        const fundAssoc = await Treasury.vestedTreasuryAssociatedAccount(
+            treasury,
+            mint,
+            programId
+        );
 
         return [
             Token.createAssociatedTokenAccountInstruction(
                 ASSOCIATED_TOKEN_PROGRAM_ID,
                 TOKEN_PROGRAM_ID,
                 mint,
-                fund,
-                treasury,
+                fundAssoc.fund,
+                fundAssoc.authority,
                 funder
             ),
             await TreasuryInstruction.CreateVestedTreasury(
                 programId,
                 funder,
+                treasury,
                 authority,
                 mint,
                 amount,
@@ -244,12 +253,16 @@ export class TreasuryInstruction {
     public static async WithdrawVested(
         programId: PublicKey,
         funder: PublicKey,
+        treasury: PublicKey,
         authority: PublicKey,
         mint: PublicKey
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
-        const treasury = await Treasury.vestedTreasuryId(authority, programId);
-        const fund = await Treasury.treasuryAssociatedAccount(treasury, mint);
+        const fundAssoc = await Treasury.vestedTreasuryAssociatedAccount(
+            treasury,
+            mint,
+            programId
+        );
         const recipient = await Token.getAssociatedTokenAddress(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
@@ -262,7 +275,8 @@ export class TreasuryInstruction {
             am(authority, true, false),
             am(recipient, false, true),
             am(treasury, false, true),
-            am(fund, false, true),
+            am(fundAssoc.authority, false, false),
+            am(fundAssoc.fund, false, true),
             am(mint, false, false),
             am(settingsId, false, false),
             am(SYSVAR_CLOCK_PUBKEY, false, false),

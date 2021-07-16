@@ -122,19 +122,18 @@ const treasury = new Treasury(connection, programId);
     await launch_treasury(treasury1);
 
     const vested_authority = new Keypair();
+    const vested_treasury = new Keypair();
     try {
-        const vested = await Treasury.vestedTreasuryId(
-            vested_authority.publicKey,
+        const vested_assoc = await Treasury.vestedTreasuryAssociatedAccount(
+            vested_treasury.publicKey,
+            token_id.publicKey,
             programId
-        );
-        const vested_assoc = await Treasury.treasuryAssociatedAccount(
-            vested,
-            token_id.publicKey
         );
         const ins =
             await TreasuryInstruction.CreateVestedTreasuryAndFundAccount(
                 programId,
                 funder.publicKey,
+                vested_treasury.publicKey,
                 vested_authority.publicKey,
                 token_id.publicKey,
                 100_000n,
@@ -146,7 +145,7 @@ const treasury = new Treasury(connection, programId);
             Token.createMintToInstruction(
                 TOKEN_PROGRAM_ID,
                 token_id.publicKey,
-                vested_assoc,
+                vested_assoc.fund,
                 mint_authority.publicKey,
                 [],
                 100_000
@@ -174,7 +173,8 @@ const treasury = new Treasury(connection, programId);
         const tx = new Transaction().add(...ins);
         const sig = await sendAndConfirmTransaction(connection, tx, [
             funder,
-            vested_authority,
+            vested_treasury,
+            //vested_authority,
             mint_authority
         ]);
 
@@ -213,7 +213,7 @@ const treasury = new Treasury(connection, programId);
             treasury1.publicKey,
             programId
         );
-        const fund = await Treasury.treasuryAssociatedAccount(
+        const fund = await Treasury.simpleTreasuryAssociatedAccount(
             treasuryId,
             token_id.publicKey
         );
@@ -238,13 +238,12 @@ const treasury = new Treasury(connection, programId);
             await TreasuryInstruction.WithdrawVested(
                 programId,
                 funder.publicKey,
+                vested_treasury.publicKey,
                 vested_authority.publicKey,
                 token_id.publicKey
             )
         );
-        let vt = await treasury.getVestedTreasuryByAuthority(
-            vested_authority.publicKey
-        );
+        let vt = await treasury.getVestedTreasury(vested_treasury.publicKey);
         console.log(
             `VT: Available ${vt
                 .available(new Date())
@@ -262,14 +261,13 @@ const treasury = new Treasury(connection, programId);
             await TreasuryInstruction.WithdrawVested(
                 programId,
                 funder.publicKey,
+                vested_treasury.publicKey,
                 vested_authority.publicKey,
                 token_id.publicKey
             )
         );
 
-        vt = await treasury.getVestedTreasuryByAuthority(
-            vested_authority.publicKey
-        );
+        vt = await treasury.getVestedTreasury(vested_treasury.publicKey);
         console.log(
             `VT: Available ${vt
                 .available(new Date())
@@ -293,9 +291,7 @@ const treasury = new Treasury(connection, programId);
         const acc = await token.getAccountInfo(vested_assoc);
         console.log(`Account Money: ${acc.amount}`);
 
-        vt = await treasury.getVestedTreasuryByAuthority(
-            vested_authority.publicKey
-        );
+        vt = await treasury.getVestedTreasury(vested_treasury.publicKey);
         console.log(
             `VT: Available ${vt
                 .available(new Date())

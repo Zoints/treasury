@@ -80,18 +80,18 @@ impl VestedTreasury {
     pub const MIN_PERCENTAGE: u16 = 1;
     pub const MAX_PERCENTAGE: u16 = 10_000;
 
-    pub fn program_address(authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"vested", &authority.to_bytes()], program_id)
+    pub fn fund_authority_address(treasury_id: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"vested authority", &treasury_id.to_bytes()], program_id)
     }
 
-    pub fn verify_program_address(
+    pub fn verify_fund_authority_address(
         key: &Pubkey,
-        authority: &Pubkey,
+        treasury_id: &Pubkey,
         program_id: &Pubkey,
     ) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::program_address(authority, program_id);
+        let (derived_key, seed) = Self::fund_authority_address(treasury_id, program_id);
         if *key != derived_key {
-            return Err(TreasuryError::InvalidTreasuryAddress.into());
+            return Err(TreasuryError::InvalidTreasuryFundAuthorityAddress.into());
         }
         Ok(seed)
     }
