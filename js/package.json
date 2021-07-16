@@ -1,6 +1,6 @@
 {
   "name": "@zoints/treasury",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "The JavaScript library for the treasury",
   "main": "build/index.js",
   "types": "build/index.d.ts",

@@ -13,6 +13,7 @@ import {
     Token,
     TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
+import { SimpleTreasuryMode } from './accounts';
 
 export enum TreasuryInstructions {
     Initialize,
@@ -21,12 +22,12 @@ export enum TreasuryInstructions {
     WithdrawVested
 }
 
-export class SimpleSchema {
+export class BasicSchema {
     instructionId: number;
 
     static schema: borsh.Schema = new Map([
         [
-            SimpleSchema,
+            BasicSchema,
             {
                 kind: 'struct',
                 fields: [['instructionId', 'u8']]
@@ -36,6 +37,29 @@ export class SimpleSchema {
 
     constructor(id: number) {
         this.instructionId = id;
+    }
+}
+
+export class SimpleSchema {
+    instructionId: number;
+    mode: SimpleTreasuryMode;
+
+    static schema: borsh.Schema = new Map([
+        [
+            SimpleSchema,
+            {
+                kind: 'struct',
+                fields: [
+                    ['instructionId', 'u8'],
+                    ['mode', 'u8']
+                ]
+            }
+        ]
+    ]);
+
+    constructor(id: number, mode: SimpleTreasuryMode) {
+        this.instructionId = id;
+        this.mode = mode;
     }
 }
 
@@ -89,9 +113,9 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new SimpleSchema(TreasuryInstructions.Initialize);
+        const instruction = new BasicSchema(TreasuryInstructions.Initialize);
         const instructionData = borsh.serialize(
-            SimpleSchema.schema,
+            BasicSchema.schema,
             instruction
         );
 
@@ -110,15 +134,10 @@ export class TreasuryInstruction {
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
-        const fund = await Treasury.simpleTreasuryAssociatedAccount(
-            treasury,
-            mint
-        );
         const keys: AccountMeta[] = [
             am(funder, true, true),
             am(authority, true, false),
             am(treasury, false, true),
-            am(fund, false, true),
             am(mint, false, false),
             am(settingsId, false, true),
             am(SYSVAR_RENT_PUBKEY, false, false),
@@ -127,7 +146,8 @@ export class TreasuryInstruction {
         ];
 
         const instruction = new SimpleSchema(
-            TreasuryInstructions.CreateSimpleTreasury
+            TreasuryInstructions.CreateSimpleTreasury,
+            SimpleTreasuryMode.Locked
         );
         const instructionData = borsh.serialize(
             SimpleSchema.schema,
@@ -284,11 +304,11 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new SimpleSchema(
+        const instruction = new BasicSchema(
             TreasuryInstructions.WithdrawVested
         );
         const instructionData = borsh.serialize(
-            SimpleSchema.schema,
+            BasicSchema.schema,
             instruction
         );
 
