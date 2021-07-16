@@ -14,7 +14,7 @@ use solana_program::{
 use spl_token::state::Mint;
 
 use crate::{
-    account::{Settings, SimpleTreasury, VestedTreasury},
+    account::{Settings, SimpleTreasury, SimpleTreasuryMode, VestedTreasury},
     error::TreasuryError,
     instruction::TreasuryInstruction,
 };
@@ -29,8 +29,8 @@ impl Processor {
 
         match instruction {
             TreasuryInstruction::Initialize => Self::process_initialize(program_id, accounts),
-            TreasuryInstruction::CreateSimpleTreasury => {
-                Self::process_create_simple_treasury(program_id, accounts)
+            TreasuryInstruction::CreateSimpleTreasury { mode } => {
+                Self::process_create_simple_treasury(program_id, accounts, mode)
             }
             TreasuryInstruction::CreatedVestedTreaury {
                 amount,
@@ -88,17 +88,22 @@ impl Processor {
     pub fn process_create_simple_treasury(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
+        mode: SimpleTreasuryMode,
     ) -> ProgramResult {
         let iter = &mut accounts.iter();
         let funder_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let treasury_fund_info = next_account_info(iter)?;
         let mint_info = next_account_info(iter)?;
         let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
 
         let rent = Rent::from_account_info(rent_info)?;
+
+        // only allow creation of specific modes
+        match mode {
+            SimpleTreasuryMode::Locked => { /* ok */ }
+        }
 
         Settings::verify_program_key(settings_info.key, program_id)?;
         let settings = Settings::try_from_slice(&settings_info.data.borrow())
@@ -120,17 +125,8 @@ impl Processor {
             program_id,
         )?;
 
-        let fund_address = spl_associated_token_account::get_associated_token_address(
-            treasury_info.key,
-            mint_info.key,
-        );
-
-        if fund_address != *treasury_fund_info.key {
-            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
-        }
-
         let user_treasury = SimpleTreasury {
-            mode: crate::account::SimpleTreasuryMode::Locked,
+            mode,
             authority: *authority_info.key,
         };
         let data = user_treasury.try_to_vec()?;

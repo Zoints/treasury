@@ -17,4 +17,4 @@ A vested treasury makes funds accessible over a period of time. The initializati
 
 The treasury can be initialized without the funds being available up front. In that case, the beneficiary can claim everything in the account *up to* the maximum theoretical funds. This allows a vested treasury to be created and then have the funds minted directly into its fund address.
 
-Multiple vested treasuries can be created for a single beneficiary.
+Multiple vested treasuries can be created for a single beneficiary. The beneficiary does not need to sign.
