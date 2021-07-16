@@ -1,30 +1,20 @@
-# Provisional Treasury Program
+# Treasury Program
 
-This program serves as the provisional treasury while the spec for the treasury program is being written. It serves as a holding for the user- and zoints-communities treasury funds. It is currently deposit only with no way to transfer the tokens out again. All non-system transactions are performed in "ZEE" which is an SPL token that is defined upon program initialization.
+The treasury programs serves as a variety of holding places for ZEE.
 
-## Program Parameters
+## Simple Treasury
 
-### Settings
-* `token`: The SPL token that fees are paid in (This should be the ZEE token)
-* `fee_recipient`: The associated account (of the `token` mint) that will receive fees
-* `price_authority`: The pubkey of the account that can set the fees and fee recipient
-* `launch_fee_user`: Cost of launching a user treasury (in ZEE)
-* `launch_fee_zoints`: Cost of launching a zoints treasury (in ZEE)
+There is exactly one possible treasury for every Solana address, with the respective solana address acting as authority. As the name implies, simple treasuries don't do anything fancy. There is only one type of simple treasury available currently, and that is `LOCKED`, a mode that only accepts funds but has no way of releasing it.
 
-## Instructions
+Simple treasuries will acquire additional functionality in the future.
 
-### Initialize
+## Vested Treasury
 
-Initializes the `Settings` account with the specified parameters
+A vested treasury makes funds accessible over a period of time. The initialization parameters are:
+* `amount`: The total amount of funds that are distributed
+* `period`: The time (in seconds) of a single period
+* `percentage`: The percentage of the total funds released every period
 
-### Create User Treasury
+The treasury can be initialized without the funds being available up front. In that case, the beneficiary can claim everything in the account *up to* the maximum theoretical funds. This allows a vested treasury to be created and then have the funds minted directly into its fund address.
 
-Creates a user treasury account at program address `[b"user", <address of creator>]`. The treasury's associated ZEE address needs to be generated outside of this program.
-
-### Create Zoints Treasury
-
-Creates a zoints treasury account at program address `[b"zoints", <bytes of the given name>]`. The treasury's associated ZEE address needs to be generated outside of this program.
-
-### Update Fees
-
-Allows the `price_authority` to update `fee_recipient`, `launch_fee_user`, `launch_fee_zoints`.
+Multiple vested treasuries can be created for a single beneficiary.
