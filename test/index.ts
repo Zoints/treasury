@@ -22,7 +22,7 @@ import {
     TreasuryInstruction
 } from '@zoints/treasury';
 
-const connection = new Connection('http://localhost:8899');
+const connection = new Connection('http://localhost:8899', 'confirmed');
 const funder = new Keypair();
 
 const token_id = new Keypair();
@@ -234,6 +234,8 @@ const treasury = new Treasury(connection, programId);
     }
 
     try {
+        console.log(`Sleeping 20 seconds for vested...`);
+        await new Promise((resolve) => setTimeout(resolve, 20000));
         const tx = new Transaction().add(
             await TreasuryInstruction.WithdrawVested(
                 programId,
@@ -257,6 +259,8 @@ const treasury = new Treasury(connection, programId);
         ]);
         console.log(`Withdraw Vested: ${sig}`);
 
+        console.log(`Sleeping 20 seconds for vested...`);
+        await new Promise((resolve) => setTimeout(resolve, 20000));
         const tx2 = new Transaction().add(
             await TreasuryInstruction.WithdrawVested(
                 programId,
