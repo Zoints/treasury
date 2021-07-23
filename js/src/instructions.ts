@@ -130,7 +130,8 @@ export class TreasuryInstruction {
         programId: PublicKey,
         funder: PublicKey,
         authority: PublicKey,
-        mint: PublicKey
+        mint: PublicKey,
+        mode: SimpleTreasuryMode = SimpleTreasuryMode.Locked
     ): Promise<TransactionInstruction> {
         const settingsId = await Treasury.settingsId(programId);
         const treasury = await Treasury.simpleTreasuryId(authority, programId);
@@ -147,7 +148,7 @@ export class TreasuryInstruction {
 
         const instruction = new SimpleSchema(
             TreasuryInstructions.CreateSimpleTreasury,
-            SimpleTreasuryMode.Locked
+            mode
         );
         const instructionData = borsh.serialize(
             SimpleSchema.schema,
