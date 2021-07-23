@@ -118,8 +118,9 @@ const treasury = new Treasury(connection, programId);
     sig = await sendAndConfirmTransaction(connection, initTx, [funder]);
     console.log(`Initialized: ${sig}`);
 
-    const treasury1 = new Keypair();
-    await launch_treasury(treasury1);
+    const simple_treasury = new Keypair();
+    const simple_authority = new Keypair();
+    await launch_treasury(simple_treasury, simple_authority);
 
     const vested_authority = new Keypair();
     const vested_treasury = new Keypair();
@@ -197,37 +198,34 @@ const treasury = new Treasury(connection, programId);
     }
 
     try {
-        const simple = await treasury.getSimpleTreasuryByAuthority(
-            treasury1.publicKey
+        const simple = await treasury.getSimpleTreasury(
+            simple_treasury.publicKey
         );
         if (simple.mode !== SimpleTreasuryMode.Locked) {
             console.log(`simple.mode mismatch`);
         }
-        if (!simple.authority.equals(treasury1.publicKey)) {
+        if (!simple.authority.equals(simple_authority.publicKey)) {
             console.log(
-                `simple.authority mismatch ${simple.authority.toBase58()} ${treasury1.publicKey.toBase58()}`
+                `simple.authority mismatch ${simple.authority.toBase58()} ${simple_authority.publicKey.toBase58()}`
             );
         }
 
-        const treasuryId = await Treasury.simpleTreasuryId(
-            treasury1.publicKey,
+        const fundAssoc = await Treasury.simpleTreasuryAssociatedAccount(
+            simple_treasury.publicKey,
+            token_id.publicKey,
             programId
-        );
-        const fund = await Treasury.simpleTreasuryAssociatedAccount(
-            treasuryId,
-            token_id.publicKey
         );
 
         const transfer = await token.transfer(
             funderAssoc.address,
-            fund,
+            fundAssoc.fund,
             funder,
             [],
             100_000
         );
         console.log(`Transferred ${transfer}`);
 
-        const treasuryFund = await token.getAccountInfo(fund);
+        const treasuryFund = await token.getAccountInfo(fundAssoc.fund);
         console.log(`Fund funds: ${treasuryFund.amount}`);
     } catch (e) {
         console.log(e);
@@ -308,11 +306,12 @@ const treasury = new Treasury(connection, programId);
     }
 })();
 
-async function launch_treasury(authority: Keypair) {
+async function launch_treasury(treasury: Keypair, authority: Keypair) {
     const tx = new Transaction().add(
         ...(await TreasuryInstruction.CreateSimpleTreasuryAndFundAccount(
             programId,
             funder.publicKey,
+            treasury.publicKey,
             authority.publicKey,
             token_id.publicKey
         ))
@@ -320,7 +319,7 @@ async function launch_treasury(authority: Keypair) {
 
     const sig = await sendAndConfirmTransaction(connection, tx, [
         funder,
-        authority
+        treasury
     ]);
     console.log(`Treasury launched: ${sig}`);
 }
