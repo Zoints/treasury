@@ -94,8 +94,6 @@ impl Processor {
         let funder_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let mint_info = next_account_info(iter)?;
-        let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
 
         let rent = Rent::from_account_info(rent_info)?;
@@ -105,25 +103,9 @@ impl Processor {
             SimpleTreasuryMode::Locked => { /* ok */ }
         }
 
-        Settings::verify_program_key(settings_info.key, program_id)?;
-        let settings = Settings::try_from_slice(&settings_info.data.borrow())
-            .map_err(|_| TreasuryError::NotInitialized)?;
-
-        settings.verify_mint(mint_info.key)?;
-
         if !treasury_info.data_is_empty() {
             return Err(TreasuryError::TreasuryAlreadyExists.into());
         }
-
-        if !authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
-        }
-
-        let treasury_seed = SimpleTreasury::verify_program_address(
-            treasury_info.key,
-            authority_info.key,
-            program_id,
-        )?;
 
         let user_treasury = SimpleTreasury {
             mode,
@@ -133,7 +115,7 @@ impl Processor {
 
         let lamports = rent.minimum_balance(data.len());
         let space = data.len() as u64;
-        invoke_signed(
+        invoke(
             &system_instruction::create_account(
                 funder_info.key,
                 treasury_info.key,
@@ -142,7 +124,6 @@ impl Processor {
                 program_id,
             ),
             &[funder_info.clone(), treasury_info.clone()],
-            &[&[b"simple", &authority_info.key.to_bytes(), &[treasury_seed]]],
         )?;
 
         treasury_info.data.borrow_mut().copy_from_slice(&data);
@@ -161,8 +142,6 @@ impl Processor {
         let funder_info = next_account_info(iter)?;
         let authority_info = next_account_info(iter)?;
         let treasury_info = next_account_info(iter)?;
-        let mint_info = next_account_info(iter)?;
-        let settings_info = next_account_info(iter)?;
         let rent_info = next_account_info(iter)?;
         let clock_info = next_account_info(iter)?;
 
@@ -181,11 +160,6 @@ impl Processor {
         {
             return Err(TreasuryError::InvalidVestmentPercentage.into());
         }
-
-        Settings::verify_program_key(settings_info.key, program_id)?;
-        let settings = Settings::try_from_slice(&settings_info.data.borrow())
-            .map_err(|_| TreasuryError::NotInitialized)?;
-        settings.verify_mint(mint_info.key)?;
 
         if !treasury_info.data_is_empty() {
             return Err(TreasuryError::TreasuryAlreadyExists.into());
