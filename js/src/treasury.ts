@@ -39,16 +39,6 @@ export class Treasury {
         );
     }
 
-    public async getSimpleTreasuryByAuthority(
-        authority: PublicKey
-    ): Promise<SimpleTreasury> {
-        const treasuryId = await Treasury.simpleTreasuryId(
-            authority,
-            this.programId
-        );
-        return this.getSimpleTreasury(treasuryId);
-    }
-
     public async getVestedTreasury(
         treasuryId: PublicKey
     ): Promise<VestedTreasury> {
@@ -72,42 +62,15 @@ export class Treasury {
         )[0];
     }
 
-    static async simpleTreasuryId(
-        authority: PublicKey,
-        programId: PublicKey
-    ): Promise<PublicKey> {
-        return (
-            await PublicKey.findProgramAddress(
-                [Buffer.from('simple'), authority.toBuffer()],
-                programId
-            )
-        )[0];
-    }
-
-    static async simpleTreasuryAssociatedAccount(
-        treasury: PublicKey,
-        mint: PublicKey
-    ): Promise<PublicKey> {
-        return (
-            await PublicKey.findProgramAddress(
-                [
-                    treasury.toBuffer(),
-                    TOKEN_PROGRAM_ID.toBuffer(),
-                    mint.toBuffer()
-                ],
-                ASSOCIATED_TOKEN_PROGRAM_ID
-            )
-        )[0];
-    }
-
-    static async vestedTreasuryAssociatedAccount(
+    private static async treasuryAssociatedAccount(
+        phrase: string,
         treasury: PublicKey,
         mint: PublicKey,
         programId: PublicKey
     ): Promise<{ authority: PublicKey; fund: PublicKey }> {
         const authority = (
             await PublicKey.findProgramAddress(
-                [Buffer.from('vested authority'), treasury.toBuffer()],
+                [Buffer.from(phrase), treasury.toBuffer()],
                 programId
             )
         )[0];
@@ -125,5 +88,31 @@ export class Treasury {
                 )
             )[0]
         };
+    }
+
+    static async simpleTreasuryAssociatedAccount(
+        treasury: PublicKey,
+        mint: PublicKey,
+        programId: PublicKey
+    ): Promise<{ authority: PublicKey; fund: PublicKey }> {
+        return Treasury.treasuryAssociatedAccount(
+            'simple authority',
+            treasury,
+            mint,
+            programId
+        );
+    }
+
+    static async vestedTreasuryAssociatedAccount(
+        treasury: PublicKey,
+        mint: PublicKey,
+        programId: PublicKey
+    ): Promise<{ authority: PublicKey; fund: PublicKey }> {
+        return Treasury.treasuryAssociatedAccount(
+            'vested authority',
+            treasury,
+            mint,
+            programId
+        );
     }
 }
