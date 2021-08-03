@@ -32,6 +32,9 @@ impl Processor {
             TreasuryInstruction::CreateSimpleTreasury { mode } => {
                 Self::process_create_simple_treasury(program_id, accounts, mode)
             }
+            TreasuryInstruction::WithdrawSimple { amount } => {
+                Self::process_withdraw_simple(program_id, accounts, amount)
+            }
             TreasuryInstruction::CreatedVestedTreaury {
                 amount,
                 period,
@@ -101,6 +104,7 @@ impl Processor {
         // only allow creation of specific modes
         match mode {
             SimpleTreasuryMode::Locked => { /* ok */ }
+            SimpleTreasuryMode::Unlocked => { /* ok */ }
         }
 
         if !treasury_info.data_is_empty() {
@@ -129,6 +133,93 @@ impl Processor {
         treasury_info.data.borrow_mut().copy_from_slice(&data);
 
         Ok(())
+    }
+
+    pub fn process_withdraw_simple(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64,
+    ) -> ProgramResult {
+        let iter = &mut accounts.iter();
+        let _funder_info = next_account_info(iter)?;
+        let authority_info = next_account_info(iter)?;
+        let recipient_info = next_account_info(iter)?;
+        let treasury_info = next_account_info(iter)?;
+        let fund_authority_info = next_account_info(iter)?;
+        let fund_info = next_account_info(iter)?;
+        let mint_info = next_account_info(iter)?;
+        let settings_info = next_account_info(iter)?;
+        let token_program_info = next_account_info(iter)?;
+
+        Settings::verify_program_key(settings_info.key, program_id)?;
+        let settings = Settings::try_from_slice(&settings_info.data.borrow())
+            .map_err(|_| TreasuryError::NotInitialized)?;
+        settings.verify_mint(mint_info.key)?;
+
+        if !authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
+        if *treasury_info.owner != *program_id {
+            return Err(TreasuryError::InvalidTreasuryOwner.into());
+        }
+
+        let treasury = SimpleTreasury::try_from_slice(&treasury_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidTreasuryAddress)?;
+
+        match treasury.mode {
+            SimpleTreasuryMode::Locked => return Err(TreasuryError::TreasuryIsLocked.into()),
+            SimpleTreasuryMode::Unlocked => { /* ok */ }
+        }
+
+        let fund_authority_seed = SimpleTreasury::verify_fund_authority_address(
+            fund_authority_info.key,
+            treasury_info.key,
+            program_id,
+        )?;
+
+        if spl_associated_token_account::get_associated_token_address(
+            fund_authority_info.key,
+            mint_info.key,
+        ) != *fund_info.key
+        {
+            return Err(TreasuryError::InvalidTreasuryFundAddress.into());
+        }
+        //let fund = spl_token::state::Account::unpack(&fund_info.data.borrow())
+        //    .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
+
+        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidRecipientAccount)?;
+        if recipient.owner != *authority_info.key {
+            return Err(TreasuryError::InvalidRecipient.into());
+        }
+        if recipient.mint != *mint_info.key {
+            return Err(TreasuryError::MintInvalid.into());
+        }
+
+        invoke_signed(
+            // will fail if not enough funds
+            &spl_token::instruction::transfer(
+                &spl_token::id(),
+                fund_info.key,
+                recipient_info.key,
+                fund_authority_info.key,
+                &[],
+                amount,
+            )?,
+            &[
+                //funder_info.clone(),
+                fund_info.clone(),
+                recipient_info.clone(),
+                treasury_info.clone(),
+                token_program_info.clone(),
+            ],
+            &[&[
+                b"vested authority",
+                &treasury_info.key.to_bytes(),
+                &[fund_authority_seed],
+            ]],
+        )
     }
 
     pub fn process_create_vested_treasury(

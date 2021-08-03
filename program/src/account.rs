@@ -39,6 +39,7 @@ impl Settings {
 #[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum SimpleTreasuryMode {
     Locked,
+    Unlocked,
 }
 
 #[repr(C)]
