@@ -187,7 +187,8 @@ export class TreasuryInstruction {
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
-        mint: PublicKey
+        mint: PublicKey,
+        mode: SimpleTreasuryMode = SimpleTreasuryMode.Locked
     ): Promise<TransactionInstruction[]> {
         const fund = await Treasury.simpleTreasuryAssociatedAccount(
             treasury,
@@ -208,7 +209,8 @@ export class TreasuryInstruction {
                 programId,
                 funder,
                 treasury,
-                authority
+                authority,
+                mode
             )
         ];
     }

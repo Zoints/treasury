@@ -21,7 +21,8 @@ export class Settings {
 }
 
 export enum SimpleTreasuryMode {
-    Locked
+    Locked,
+    Unlocked
 }
 
 export class SimpleTreasury {
@@ -45,6 +46,9 @@ export class SimpleTreasury {
         switch (params.mode) {
             case 0:
                 this.mode = SimpleTreasuryMode.Locked;
+                break;
+            case 1:
+                this.mode = SimpleTreasuryMode.Unlocked;
                 break;
             default:
                 throw new Error('invalid mode');
