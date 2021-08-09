@@ -18,6 +18,7 @@ import { SimpleTreasuryMode } from './accounts';
 export enum TreasuryInstructions {
     Initialize,
     CreateSimpleTreasury,
+    WithdrawSimple,
     CreatedVestedTreasury,
     WithdrawVested
 }
@@ -60,6 +61,29 @@ export class SimpleSchema {
     constructor(id: number, mode: SimpleTreasuryMode) {
         this.instructionId = id;
         this.mode = mode;
+    }
+}
+
+export class SimpleWithdrawSchema {
+    instructionId: number;
+    amount: bigint;
+
+    static schema: borsh.Schema = new Map([
+        [
+            SimpleWithdrawSchema,
+            {
+                kind: 'struct',
+                fields: [
+                    ['instructionId', 'u8'],
+                    ['amount', 'u64']
+                ]
+            }
+        ]
+    ]);
+
+    constructor(id: number, amount: bigint) {
+        this.instructionId = id;
+        this.amount = amount;
     }
 }
 
@@ -187,6 +211,50 @@ export class TreasuryInstruction {
                 authority
             )
         ];
+    }
+
+    public static async WithdrawSimple(
+        programId: PublicKey,
+        funder: PublicKey,
+        treasury: PublicKey,
+        authority: PublicKey,
+        associated: PublicKey,
+        mint: PublicKey,
+        amount: bigint
+    ): Promise<TransactionInstruction> {
+        const fund = await Treasury.simpleTreasuryAssociatedAccount(
+            treasury,
+            mint,
+            programId
+        );
+        const settings = await Treasury.settingsId(programId);
+
+        const keys: AccountMeta[] = [
+            am(funder, true, true),
+            am(authority, false, false),
+            am(associated, false, true),
+            am(treasury, false, false),
+            am(fund.authority, false, false),
+            am(fund.fund, false, true),
+            am(mint, false, false),
+            am(settings, false, false),
+            am(TOKEN_PROGRAM_ID, false, false)
+        ];
+
+        const instruction = new SimpleWithdrawSchema(
+            TreasuryInstructions.CreateSimpleTreasury,
+            amount
+        );
+        const instructionData = borsh.serialize(
+            SimpleWithdrawSchema.schema,
+            instruction
+        );
+
+        return new TransactionInstruction({
+            keys: keys,
+            programId,
+            data: Buffer.from(instructionData)
+        });
     }
 
     private static CreateVestedTreasury(

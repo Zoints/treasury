@@ -1,11 +1,6 @@
-use std::u16;
-
 use crate::error::TreasuryError;
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::clock::UnixTimestamp;
-use solana_program::msg;
-use solana_program::program_error::ProgramError;
-use solana_program::pubkey::Pubkey;
+use solana_program::{clock::UnixTimestamp, program_error::ProgramError, pubkey::Pubkey};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -21,7 +16,6 @@ impl Settings {
     pub fn verify_program_key(key: &Pubkey, program_id: &Pubkey) -> Result<u8, ProgramError> {
         let (derived_key, seed) = Self::program_address(program_id);
         if *key != derived_key {
-            msg!("invalid settings account");
             return Err(TreasuryError::InvalidSettingsKey.into());
         }
         Ok(seed)
