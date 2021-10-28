@@ -1,2 +1,2 @@
-# JS Library for Zoints Staking
+# JS Library for Zoints Treasury
 

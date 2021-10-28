@@ -26,18 +26,8 @@ export enum TreasuryInstructions {
 export class BasicSchema {
     instructionId: number;
 
-    static schema: borsh.Schema = new Map([
-        [
-            BasicSchema,
-            {
-                kind: 'struct',
-                fields: [['instructionId', 'u8']]
-            }
-        ]
-    ]);
-
-    constructor(id: number) {
-        this.instructionId = id;
+    constructor(params: { instructionId: number }) {
+        this.instructionId = params.instructionId;
     }
 }
 
@@ -45,22 +35,9 @@ export class SimpleSchema {
     instructionId: number;
     mode: SimpleTreasuryMode;
 
-    static schema: borsh.Schema = new Map([
-        [
-            SimpleSchema,
-            {
-                kind: 'struct',
-                fields: [
-                    ['instructionId', 'u8'],
-                    ['mode', 'u8']
-                ]
-            }
-        ]
-    ]);
-
-    constructor(id: number, mode: SimpleTreasuryMode) {
-        this.instructionId = id;
-        this.mode = mode;
+    constructor(params: { instructionId: number; mode: SimpleTreasuryMode }) {
+        this.instructionId = params.instructionId;
+        this.mode = params.mode;
     }
 }
 
@@ -68,56 +45,28 @@ export class SimpleWithdrawSchema {
     instructionId: number;
     amount: bigint;
 
-    static schema: borsh.Schema = new Map([
-        [
-            SimpleWithdrawSchema,
-            {
-                kind: 'struct',
-                fields: [
-                    ['instructionId', 'u8'],
-                    ['amount', 'u64']
-                ]
-            }
-        ]
-    ]);
-
-    constructor(id: number, amount: bigint) {
-        this.instructionId = id;
-        this.amount = amount;
+    constructor(params: { instructionId: number; amount: bigint }) {
+        this.instructionId = params.instructionId;
+        this.amount = params.amount;
     }
 }
 
 export class VestedSchema {
     instructionId: number;
     amount: bigint;
-    period: number;
+    period: BigInt;
     percentage: number;
 
-    static schema: borsh.Schema = new Map([
-        [
-            VestedSchema,
-            {
-                kind: 'struct',
-                fields: [
-                    ['instructionId', 'u8'],
-                    ['amount', 'u64'],
-                    ['period', 'u64'],
-                    ['percentage', 'u16']
-                ]
-            }
-        ]
-    ]);
-
-    constructor(
-        id: number,
-        amount: bigint,
-        period: number,
-        percentage: number
-    ) {
-        this.instructionId = id;
-        this.amount = amount;
-        this.period = period;
-        this.percentage = percentage;
+    constructor(params: {
+        instructionId: number;
+        amount: bigint;
+        period: BigInt;
+        percentage: number;
+    }) {
+        this.instructionId = params.instructionId;
+        this.amount = params.amount;
+        this.period = params.period;
+        this.percentage = params.percentage;
     }
 }
 
@@ -137,9 +86,11 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new BasicSchema(TreasuryInstructions.Initialize);
+        const instruction = new BasicSchema({
+            instructionId: TreasuryInstructions.Initialize
+        });
         const instructionData = borsh.serialize(
-            BasicSchema.schema,
+            INSTRUCTION_SCHEMA,
             instruction
         );
 
@@ -166,12 +117,12 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new SimpleSchema(
-            TreasuryInstructions.CreateSimpleTreasury,
+        const instruction = new SimpleSchema({
+            instructionId: TreasuryInstructions.CreateSimpleTreasury,
             mode
-        );
+        });
         const instructionData = borsh.serialize(
-            SimpleSchema.schema,
+            INSTRUCTION_SCHEMA,
             instruction
         );
 
@@ -243,12 +194,12 @@ export class TreasuryInstruction {
             am(TOKEN_PROGRAM_ID, false, false)
         ];
 
-        const instruction = new SimpleWithdrawSchema(
-            TreasuryInstructions.CreateSimpleTreasury,
+        const instruction = new SimpleWithdrawSchema({
+            instructionId: TreasuryInstructions.CreateSimpleTreasury,
             amount
-        );
+        });
         const instructionData = borsh.serialize(
-            SimpleWithdrawSchema.schema,
+            INSTRUCTION_SCHEMA,
             instruction
         );
 
@@ -265,7 +216,7 @@ export class TreasuryInstruction {
         treasury: PublicKey,
         authority: PublicKey,
         amount: bigint,
-        period: number,
+        period: bigint,
         percentage: number
     ): TransactionInstruction {
         const keys: AccountMeta[] = [
@@ -277,14 +228,14 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new VestedSchema(
-            TreasuryInstructions.CreatedVestedTreasury,
+        const instruction = new VestedSchema({
+            instructionId: TreasuryInstructions.CreatedVestedTreasury,
             amount,
             period,
             percentage
-        );
+        });
         const instructionData = borsh.serialize(
-            VestedSchema.schema,
+            INSTRUCTION_SCHEMA,
             instruction
         );
 
@@ -302,7 +253,7 @@ export class TreasuryInstruction {
         authority: PublicKey,
         mint: PublicKey,
         amount: bigint,
-        period: number,
+        period: bigint,
         percentage: number
     ): Promise<TransactionInstruction[]> {
         const fundAssoc = await Treasury.vestedTreasuryAssociatedAccount(
@@ -366,11 +317,11 @@ export class TreasuryInstruction {
             am(SystemProgram.programId, false, false)
         ];
 
-        const instruction = new BasicSchema(
-            TreasuryInstructions.WithdrawVested
-        );
+        const instruction = new BasicSchema({
+            instructionId: TreasuryInstructions.WithdrawVested
+        });
         const instructionData = borsh.serialize(
-            BasicSchema.schema,
+            INSTRUCTION_SCHEMA,
             instruction
         );
 
@@ -389,3 +340,45 @@ function am(
 ): AccountMeta {
     return { pubkey, isSigner, isWritable };
 }
+
+export const INSTRUCTION_SCHEMA: borsh.Schema = new Map<any, any>([
+    [
+        BasicSchema,
+        {
+            kind: 'struct',
+            fields: [['instructionId', 'u8']]
+        }
+    ],
+    [
+        SimpleSchema,
+        {
+            kind: 'struct',
+            fields: [
+                ['instructionId', 'u8'],
+                ['mode', 'SimpleTreasuryMode']
+            ]
+        }
+    ],
+    [
+        SimpleWithdrawSchema,
+        {
+            kind: 'struct',
+            fields: [
+                ['instructionId', 'u8'],
+                ['amount', 'BigInt']
+            ]
+        }
+    ],
+    [
+        VestedSchema,
+        {
+            kind: 'struct',
+            fields: [
+                ['instructionId', 'u8'],
+                ['amount', 'BigInt'],
+                ['period', 'BigInt'],
+                ['percentage', 'u16']
+            ]
+        }
+    ]
+]);
