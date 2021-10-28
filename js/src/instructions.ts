@@ -271,7 +271,7 @@ export class TreasuryInstruction {
                 fundAssoc.authority,
                 funder
             ),
-            await TreasuryInstruction.CreateVestedTreasury(
+            TreasuryInstruction.CreateVestedTreasury(
                 programId,
                 funder,
                 treasury,

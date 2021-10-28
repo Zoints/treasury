@@ -305,7 +305,7 @@ const treasury = new Treasury(connection, programId);
     } catch (e) {
         console.log(e);
     }
-})();
+})().then(() => process.exit(0));
 
 async function launch_treasury(
     treasury: Keypair,
