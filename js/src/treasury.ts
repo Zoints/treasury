@@ -1,9 +1,10 @@
 import { Connection, PublicKey } from '@solana/web3.js';
-import { Settings } from './';
+import { ACCOUNT_SCHEMA, Settings } from './';
 import * as borsh from 'borsh';
 import { SimpleTreasury, VestedTreasury } from './accounts';
 import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
+    Token,
     TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 
@@ -22,7 +23,7 @@ export class Treasury {
         if (account === null)
             throw new Error('Unable to find settings account');
 
-        return borsh.deserialize(Settings.schema, Settings, account.data);
+        return borsh.deserialize(ACCOUNT_SCHEMA, Settings, account.data);
     }
 
     public async getSimpleTreasury(
@@ -32,11 +33,7 @@ export class Treasury {
         if (account === null)
             throw new Error('Unable to find simple treasury account');
 
-        return borsh.deserialize(
-            SimpleTreasury.schema,
-            SimpleTreasury,
-            account.data
-        );
+        return borsh.deserialize(ACCOUNT_SCHEMA, SimpleTreasury, account.data);
     }
 
     public async getVestedTreasury(
@@ -46,11 +43,7 @@ export class Treasury {
         if (account === null)
             throw new Error('Unable to find vested treasury account');
 
-        return borsh.deserialize(
-            VestedTreasury.schema,
-            VestedTreasury,
-            account.data
-        );
+        return borsh.deserialize(ACCOUNT_SCHEMA, VestedTreasury, account.data);
     }
 
     static async settingsId(programId: PublicKey): Promise<PublicKey> {
@@ -77,16 +70,13 @@ export class Treasury {
 
         return {
             authority,
-            fund: (
-                await PublicKey.findProgramAddress(
-                    [
-                        authority.toBuffer(),
-                        TOKEN_PROGRAM_ID.toBuffer(),
-                        mint.toBuffer()
-                    ],
-                    ASSOCIATED_TOKEN_PROGRAM_ID
-                )
-            )[0]
+            fund: await Token.getAssociatedTokenAddress(
+                ASSOCIATED_TOKEN_PROGRAM_ID,
+                TOKEN_PROGRAM_ID,
+                mint,
+                authority,
+                true
+            )
         };
     }
 

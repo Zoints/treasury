@@ -1,6 +1,6 @@
 {
   "name": "@zoints/treasury",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "The JavaScript library for the treasury",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -20,10 +20,10 @@
   "author": "Who Soup",
   "license": "UNLICENSED",
   "dependencies": {
-    "@solana/spl-token": "^0.1.6",
-    "@solana/web3.js": "^1.20.0",
+    "@solana/spl-token": "^0.1.8",
+    "@solana/web3.js": "^1.30.2",
     "bn.js": "^5.2.0",
-    "borsh": "^0.4.0"
+    "borsh": "^0.6.0"
   },
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.1",

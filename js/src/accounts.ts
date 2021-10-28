@@ -1,22 +1,12 @@
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 import * as borsh from 'borsh';
+import './extendBorsh';
 
 export class Settings {
     public token: PublicKey;
-
-    static schema: borsh.Schema = new Map([
-        [
-            Settings,
-            {
-                kind: 'struct',
-                fields: [['token', [32]]]
-            }
-        ]
-    ]);
-
-    constructor(params: { token: Uint8Array }) {
-        this.token = new PublicKey(params.token);
+    constructor(params: { token: PublicKey }) {
+        this.token = params.token;
     }
 }
 
@@ -29,31 +19,9 @@ export class SimpleTreasury {
     public mode: SimpleTreasuryMode;
     public authority: PublicKey;
 
-    static schema: borsh.Schema = new Map([
-        [
-            SimpleTreasury,
-            {
-                kind: 'struct',
-                fields: [
-                    ['mode', 'u8'],
-                    ['authority', [32]]
-                ]
-            }
-        ]
-    ]);
-
-    constructor(params: { mode: number; authority: Uint8Array }) {
-        switch (params.mode) {
-            case 0:
-                this.mode = SimpleTreasuryMode.Locked;
-                break;
-            case 1:
-                this.mode = SimpleTreasuryMode.Unlocked;
-                break;
-            default:
-                throw new Error('invalid mode');
-        }
-        this.authority = new PublicKey(params.authority);
+    constructor(params: { mode: SimpleTreasuryMode; authority: PublicKey }) {
+        this.mode = params.mode;
+        this.authority = params.authority;
     }
 }
 
@@ -65,32 +33,15 @@ export class VestedTreasury {
     public vestmentPercentage: number;
     public withdrawn: BN;
 
-    static schema: borsh.Schema = new Map([
-        [
-            VestedTreasury,
-            {
-                kind: 'struct',
-                fields: [
-                    ['authority', [32]],
-                    ['initialAmount', 'u64'],
-                    ['start', 'u64'],
-                    ['vestmentPeriod', 'u64'],
-                    ['vestmentPercentage', 'u16'],
-                    ['withdrawn', 'u64']
-                ]
-            }
-        ]
-    ]);
-
     constructor(params: {
-        authority: Uint8Array;
+        authority: PublicKey;
         initialAmount: BN;
         start: BN;
         vestmentPeriod: BN;
         vestmentPercentage: number;
         withdrawn: BN;
     }) {
-        this.authority = new PublicKey(params.authority);
+        this.authority = params.authority;
         this.initialAmount = params.initialAmount;
         this.start = new Date(params.start.toNumber() * 1000);
         this.vestmentPeriod = params.vestmentPeriod;
@@ -117,3 +68,37 @@ export class VestedTreasury {
         return available.ltn(0) ? new BN(0) : available;
     }
 }
+
+export const ACCOUNT_SCHEMA: borsh.Schema = new Map<any, any>([
+    [
+        Settings,
+        {
+            kind: 'struct',
+            fields: [['token', 'PublicKey']]
+        }
+    ],
+    [
+        SimpleTreasury,
+        {
+            kind: 'struct',
+            fields: [
+                ['mode', 'SimpleTreasuryMode'],
+                ['authority', 'PublicKey']
+            ]
+        }
+    ],
+    [
+        VestedTreasury,
+        {
+            kind: 'struct',
+            fields: [
+                ['authority', 'PublicKey'],
+                ['initialAmount', 'u64'],
+                ['start', 'u64'],
+                ['vestmentPeriod', 'u64'],
+                ['vestmentPercentage', 'u16'],
+                ['withdrawn', 'u64']
+            ]
+        }
+    ]
+]);

@@ -347,6 +347,7 @@ impl Processor {
                     payable,
                 )?,
                 &[
+                    fund_authority_info.clone(),
                     fund_info.clone(),
                     recipient_info.clone(),
                     treasury_info.clone(),

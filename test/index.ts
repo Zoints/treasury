@@ -138,7 +138,7 @@ const treasury = new Treasury(connection, programId);
                 vested_authority.publicKey,
                 token_id.publicKey,
                 100_000n,
-                10,
+                10n,
                 1000
             );
 
@@ -243,6 +243,7 @@ const treasury = new Treasury(connection, programId);
                 token_id.publicKey
             )
         );
+
         let vt = await treasury.getVestedTreasury(vested_treasury.publicKey);
         console.log(
             `VT: Available ${vt
@@ -304,7 +305,7 @@ const treasury = new Treasury(connection, programId);
     } catch (e) {
         console.log(e);
     }
-})();
+})().then(() => process.exit(0));
 
 async function launch_treasury(
     treasury: Keypair,
