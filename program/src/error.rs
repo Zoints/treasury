@@ -85,6 +85,14 @@ pub enum TreasuryError {
     /// Invalid Recipient Account
     #[error("Invalid Recipient Account")]
     InvalidRecipientAccount,
+
+    /// Treasury is Locked
+    #[error("Treasury is Locked")]
+    TreasuryIsLocked,
+
+    /// Invalid Associated Account
+    #[error("Invalid Associated Account")]
+    InvalidAssociatedAccount,
 }
 impl From<TreasuryError> for ProgramError {
     fn from(e: TreasuryError) -> Self {

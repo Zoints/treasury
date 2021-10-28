@@ -1,11 +1,9 @@
-use std::u16;
-
 use crate::error::TreasuryError;
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::clock::UnixTimestamp;
-use solana_program::msg;
-use solana_program::program_error::ProgramError;
-use solana_program::pubkey::Pubkey;
+use solana_program::{
+    account_info::AccountInfo, clock::UnixTimestamp, msg, program_error::ProgramError,
+    pubkey::Pubkey,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -18,13 +16,20 @@ impl Settings {
         Pubkey::find_program_address(&[b"settings"], program_id)
     }
 
-    pub fn verify_program_key(key: &Pubkey, program_id: &Pubkey) -> Result<u8, ProgramError> {
+    pub fn verify_program_address(key: &Pubkey, program_id: &Pubkey) -> Result<u8, ProgramError> {
         let (derived_key, seed) = Self::program_address(program_id);
         if *key != derived_key {
-            msg!("invalid settings account");
             return Err(TreasuryError::InvalidSettingsKey.into());
         }
         Ok(seed)
+    }
+
+    pub fn from_account_info(
+        info: &AccountInfo,
+        program_id: &Pubkey,
+    ) -> Result<Settings, ProgramError> {
+        Self::verify_program_address(info.key, program_id)?; // implies the info is owned by the program
+        Self::try_from_slice(&info.data.borrow()).map_err(|_| TreasuryError::NotInitialized.into())
     }
 
     pub fn verify_mint(&self, key: &Pubkey) -> Result<(), ProgramError> {
@@ -39,6 +44,7 @@ impl Settings {
 #[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum SimpleTreasuryMode {
     Locked,
+    Unlocked,
 }
 
 #[repr(C)]
@@ -49,6 +55,31 @@ pub struct SimpleTreasury {
 }
 
 impl SimpleTreasury {
+    pub fn from_account_info(
+        treasury_info: &AccountInfo,
+        authority_info: &AccountInfo,
+        program_id: &Pubkey,
+    ) -> Result<SimpleTreasury, ProgramError> {
+        // treasury account checks
+        if *treasury_info.owner != *program_id {
+            msg!("treasury account not owned by program");
+            return Err(TreasuryError::InvalidTreasuryFundAccount.into());
+        }
+        let treasury = Self::try_from_slice(&treasury_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
+
+        // authority owner checks
+        if !authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
+        if treasury.authority != *authority_info.key {
+            return Err(TreasuryError::InvalidTreasuryOwner.into());
+        }
+
+        Ok(treasury)
+    }
+
     pub fn fund_authority_address(treasury_id: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"simple authority", &treasury_id.to_bytes()], program_id)
     }
@@ -79,6 +110,31 @@ pub struct VestedTreasury {
 impl VestedTreasury {
     pub const MIN_PERCENTAGE: u16 = 1;
     pub const MAX_PERCENTAGE: u16 = 10_000;
+
+    pub fn from_account_info(
+        treasury_info: &AccountInfo,
+        authority_info: &AccountInfo,
+        program_id: &Pubkey,
+    ) -> Result<VestedTreasury, ProgramError> {
+        // treasury account checks
+        if *treasury_info.owner != *program_id {
+            msg!("treasury account not owned by program");
+            return Err(TreasuryError::InvalidTreasuryFundAccount.into());
+        }
+        let treasury = Self::try_from_slice(&treasury_info.data.borrow())
+            .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
+
+        // authority owner checks
+        if !authority_info.is_signer {
+            return Err(TreasuryError::MissingAuthoritySignature.into());
+        }
+
+        if treasury.authority != *authority_info.key {
+            return Err(TreasuryError::InvalidTreasuryOwner.into());
+        }
+
+        Ok(treasury)
+    }
 
     pub fn fund_authority_address(treasury_id: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"vested authority", &treasury_id.to_bytes()], program_id)

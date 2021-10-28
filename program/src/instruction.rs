@@ -28,7 +28,12 @@ pub enum TreasuryInstruction {
     ///   4. `[]` The global settings program account
     ///   5. `[]` Rent sysvar
     ///   6. `[]` System Program
-    CreateSimpleTreasury { mode: SimpleTreasuryMode },
+    CreateSimpleTreasury {
+        mode: SimpleTreasuryMode,
+    },
+    WithdrawSimple {
+        amount: u64,
+    },
     /// Created Vested Treasury
     ///
     /// Initializes a vested treasury. SOL fees are paid by the funder.

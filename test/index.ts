@@ -103,10 +103,6 @@ const treasury = new Treasury(connection, programId);
 
     console.log(`Attempting to initialize`);
 
-    const settings_id = (
-        await PublicKey.findProgramAddress([Buffer.from('settings')], programId)
-    )[0];
-
     const initTx = new Transaction().add(
         await TreasuryInstruction.Initialize(
             programId,
@@ -121,6 +117,10 @@ const treasury = new Treasury(connection, programId);
     const simple_treasury = new Keypair();
     const simple_authority = new Keypair();
     await launch_treasury(simple_treasury, simple_authority);
+
+    const unlocked_treasury = new Keypair();
+    const unlocked_authority = new Keypair();
+    await launch_treasury(unlocked_treasury, unlocked_authority);
 
     const vested_authority = new Keypair();
     const vested_treasury = new Keypair();
@@ -306,14 +306,19 @@ const treasury = new Treasury(connection, programId);
     }
 })();
 
-async function launch_treasury(treasury: Keypair, authority: Keypair) {
+async function launch_treasury(
+    treasury: Keypair,
+    authority: Keypair,
+    mode: SimpleTreasuryMode = SimpleTreasuryMode.Locked
+) {
     const tx = new Transaction().add(
         ...(await TreasuryInstruction.CreateSimpleTreasuryAndFundAccount(
             programId,
             funder.publicKey,
             treasury.publicKey,
             authority.publicKey,
-            token_id.publicKey
+            token_id.publicKey,
+            mode
         ))
     );
 
