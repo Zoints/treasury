@@ -11,13 +11,32 @@ use solana_program::{
     sysvar::{rent::Rent, Sysvar},
 };
 
-use spl_token::state::Mint;
+use spl_token::state::{Account, Mint};
 
 use crate::{
     account::{Settings, SimpleTreasury, SimpleTreasuryMode, VestedTreasury},
     error::TreasuryError,
     instruction::TreasuryInstruction,
 };
+
+/// Verify an Associated Account
+#[macro_export]
+macro_rules! verify_associated {
+    ($assoc:expr, $owner:expr, $mint:expr) => {
+        match Account::unpack(&$assoc.data.borrow()) {
+            Ok(account) => {
+                if account.mint != $mint {
+                    Err(TreasuryError::MintWrongToken.into())
+                } else if account.owner != $owner {
+                    Err(TreasuryError::InvalidAssociatedAccount.into())
+                } else {
+                    Ok(account)
+                }
+            }
+            _ => Err(TreasuryError::InvalidAssociatedAccount),
+        }
+    };
+}
 
 pub struct Processor {}
 impl Processor {
@@ -68,7 +87,7 @@ impl Processor {
 
         let data = settings.try_to_vec()?;
 
-        let seed = Settings::verify_program_key(settings_info.key, program_id)?;
+        let seed = Settings::verify_program_address(settings_info.key, program_id)?;
         let lamports = rent.minimum_balance(data.len());
         let space = data.len() as u64;
         invoke_signed(
@@ -151,21 +170,11 @@ impl Processor {
         let settings_info = next_account_info(iter)?;
         let token_program_info = next_account_info(iter)?;
 
-        Settings::verify_program_key(settings_info.key, program_id)?;
-        let settings = Settings::try_from_slice(&settings_info.data.borrow())
-            .map_err(|_| TreasuryError::NotInitialized)?;
+        let settings = Settings::from_account_info(settings_info, program_id)?;
         settings.verify_mint(mint_info.key)?;
 
-        if !authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
-        }
-
-        if *treasury_info.owner != *program_id {
-            return Err(TreasuryError::InvalidTreasuryOwner.into());
-        }
-
-        let treasury = SimpleTreasury::try_from_slice(&treasury_info.data.borrow())
-            .map_err(|_| TreasuryError::InvalidTreasuryAddress)?;
+        let treasury =
+            SimpleTreasury::from_account_info(treasury_info, authority_info, program_id)?;
 
         match treasury.mode {
             SimpleTreasuryMode::Locked => return Err(TreasuryError::TreasuryIsLocked.into()),
@@ -185,17 +194,9 @@ impl Processor {
         {
             return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
-        //let fund = spl_token::state::Account::unpack(&fund_info.data.borrow())
-        //    .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
 
-        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())
-            .map_err(|_| TreasuryError::InvalidRecipientAccount)?;
-        if recipient.owner != *authority_info.key {
-            return Err(TreasuryError::InvalidRecipient.into());
-        }
-        if recipient.mint != *mint_info.key {
-            return Err(TreasuryError::MintInvalid.into());
-        }
+        verify_associated!(fund_info, *fund_authority_info.key, settings.token)?;
+        verify_associated!(recipient_info, treasury.authority, settings.token)?;
 
         invoke_signed(
             // will fail if not enough funds
@@ -299,21 +300,11 @@ impl Processor {
 
         let clock = Clock::from_account_info(clock_info)?;
 
-        Settings::verify_program_key(settings_info.key, program_id)?;
-        let settings = Settings::try_from_slice(&settings_info.data.borrow())
-            .map_err(|_| TreasuryError::NotInitialized)?;
+        let settings = Settings::from_account_info(settings_info, program_id)?;
         settings.verify_mint(mint_info.key)?;
 
-        if !authority_info.is_signer {
-            return Err(TreasuryError::MissingAuthoritySignature.into());
-        }
-
-        if *treasury_info.owner != *program_id {
-            return Err(TreasuryError::InvalidTreasuryOwner.into());
-        }
-
-        let mut treasury = VestedTreasury::try_from_slice(&treasury_info.data.borrow())
-            .map_err(|_| TreasuryError::InvalidTreasuryAddress)?;
+        let mut treasury =
+            VestedTreasury::from_account_info(treasury_info, authority_info, program_id)?;
 
         let fund_authority_seed = VestedTreasury::verify_fund_authority_address(
             fund_authority_info.key,
@@ -328,17 +319,8 @@ impl Processor {
         {
             return Err(TreasuryError::InvalidTreasuryFundAddress.into());
         }
-        let fund = spl_token::state::Account::unpack(&fund_info.data.borrow())
-            .map_err(|_| TreasuryError::InvalidTreasuryFundAccount)?;
-
-        let recipient = spl_token::state::Account::unpack(&recipient_info.data.borrow())
-            .map_err(|_| TreasuryError::InvalidRecipientAccount)?;
-        if recipient.owner != *authority_info.key {
-            return Err(TreasuryError::InvalidRecipient.into());
-        }
-        if recipient.mint != *mint_info.key {
-            return Err(TreasuryError::MintInvalid.into());
-        }
+        let fund = verify_associated!(fund_info, *fund_authority_info.key, settings.token)?;
+        verify_associated!(recipient_info, treasury.authority, settings.token)?;
 
         // calculate how much funds are available to be released
         let available = treasury.maximum_available(clock.unix_timestamp) - treasury.withdrawn;
@@ -349,7 +331,7 @@ impl Processor {
                 available
             };
 
-            treasury.withdrawn += available;
+            treasury.withdrawn += payable;
             treasury_info
                 .data
                 .borrow_mut()
@@ -365,7 +347,6 @@ impl Processor {
                     payable,
                 )?,
                 &[
-                    //funder_info.clone(),
                     fund_info.clone(),
                     recipient_info.clone(),
                     treasury_info.clone(),
