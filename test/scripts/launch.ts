@@ -11,9 +11,8 @@ import { TreasuryInstruction } from '@zoints/treasury';
 
 (async () => {
     let url = process.env.URL || 'http://localhost:8899';
-    try {
+    if (process.env.URL !== undefined)
         url = clusterApiUrl(process.env.URL as Cluster);
-    } catch (e) {}
 
     const programId = new PublicKey(process.env.PROGRAM_ID || 'error');
     const mint = new PublicKey(process.env.MINT || 'error');
@@ -25,6 +24,6 @@ import { TreasuryInstruction } from '@zoints/treasury';
     const tx = new Transaction().add(
         await TreasuryInstruction.Initialize(programId, funder.publicKey, mint)
     );
-    console.log('Sending transaction...');
+    console.log(`Sending transaction to cluster ${url} ...`);
     console.log(await sendAndConfirmTransaction(connection, tx, [funder]));
 })().then(() => process.exit(0));
