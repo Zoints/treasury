@@ -3,13 +3,6 @@ import BN from 'bn.js';
 import * as borsh from 'borsh';
 import './extendBorsh';
 
-export class Settings {
-    public token: PublicKey;
-    constructor(params: { token: PublicKey }) {
-        this.token = params.token;
-    }
-}
-
 export enum SimpleTreasuryMode {
     Locked,
     Unlocked
@@ -71,17 +64,11 @@ export class VestedTreasury {
 
 export const ACCOUNT_SCHEMA: borsh.Schema = new Map<any, any>([
     [
-        Settings,
-        {
-            kind: 'struct',
-            fields: [['token', 'PublicKey']]
-        }
-    ],
-    [
         SimpleTreasury,
         {
             kind: 'struct',
             fields: [
+                ['token', 'PublicKey'],
                 ['mode', 'SimpleTreasuryMode'],
                 ['authority', 'PublicKey']
             ]
@@ -92,6 +79,7 @@ export const ACCOUNT_SCHEMA: borsh.Schema = new Map<any, any>([
         {
             kind: 'struct',
             fields: [
+                ['token', 'PublicKey'],
                 ['authority', 'PublicKey'],
                 ['initialAmount', 'u64'],
                 ['start', 'u64'],

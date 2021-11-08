@@ -5,17 +5,6 @@ use crate::account::SimpleTreasuryMode;
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, BorshDeserialize, BorshSerialize)]
 pub enum TreasuryInstruction {
-    /// Initialize the Treasury Program
-    ///
-    /// This only needs to be done once to set the initial parameters
-    ///
-    /// Accounts expected by this instruction:
-    ///   0. `[signer, writable]` The account funding the instruction
-    ///   1. `[]` The ZEE Token mint
-    ///   2. `[writable]` The global settings program account
-    ///   3. `[]` Rent sysvar
-    ///   4. `[]` System Program
-    Initialize,
     /// Create Simple Treasury
     ///
     /// Initializes a treasury for a specific user. SOL fees are paid by the funder.
@@ -23,17 +12,25 @@ pub enum TreasuryInstruction {
     /// Accounts expected by this instruction:
     ///   0. `[signer, writable]` The account funding the instruction
     ///   1. `[signer]` The authority that controls the treasury
-    ///   2. `[writable]` The treasury account for the authority
-    ///   3. `[]` The ZEE token mint
-    ///   4. `[]` The global settings program account
-    ///   5. `[]` Rent sysvar
+    ///   2. `[writable]` The treasury account
+    ///   3. `[]` The SPL Token mint used for this treasury
+    ///   4. `[]` Rent sysvar
+    ///   5. `[]` Token Program
     ///   6. `[]` System Program
-    CreateSimpleTreasury {
-        mode: SimpleTreasuryMode,
-    },
-    WithdrawSimple {
-        amount: u64,
-    },
+    CreateSimpleTreasury { mode: SimpleTreasuryMode },
+    /// Withdraw from a Simple Treasury
+    ///
+    /// With a specified amount from an Unlocked Simple Treasury
+    ///
+    /// Accounts expected by this instruction:
+    ///   0. `[signer, writable]` The account funding the instruction
+    ///   1. `[signer]` The authority that controls the treasury
+    ///   2. `[writable]` The treasury account
+    ///   3. `[]` The program's simple treasury authority
+    ///   4. `[writable]` The treasury's fund account
+    ///   5. `[]` The SPL Token mint of the treasury
+    ///   5. `[]` Token Program
+    WithdrawSimple { amount: u64 },
     /// Created Vested Treasury
     ///
     /// Initializes a vested treasury. SOL fees are paid by the funder.
@@ -42,11 +39,10 @@ pub enum TreasuryInstruction {
     ///   0. `[signer, writable]` The account funding the instruction
     ///   1. `[]` The authority that controls the treasury
     ///   2. `[writable]` The treasury account for the authority
-    ///   3. `[]` The ZEE token mint
-    ///   4. `[]` The global settings program account
-    ///   5. `[]` Rent sysvar
-    ///   6. `[]` Clock sysvar
-    ///   7. `[]` System Program
+    ///   3. `[]` The SPL Token mint this treasury is locked to
+    ///   4. `[]` Rent sysvar
+    ///   5. `[]` Clock sysvar
+    ///   6. `[]` System Program
     CreatedVestedTreaury {
         amount: u64,
         period: u64,
@@ -63,11 +59,9 @@ pub enum TreasuryInstruction {
     ///   3. `[writable]` The treasury account
     ///   4. `[]` The treasury's fund authority
     ///   5. `[]` The treasury's fund associated account
-    ///   6. `[]` The ZEE token mint
-    ///   7. `[]` The global settings program account
-    ///   8. `[]` Clock sysvar
-    ///   9. `[]` SPL Token Program
-    ///  10. `[]` System Program
+    ///   6. `[]` Clock sysvar
+    ///   7. `[]` SPL Token Program
+    ///   8. `[]` System Program
     WithdrawVested,
 }
 
@@ -78,7 +72,7 @@ mod tests {
     pub fn test_serialize_instruction_init() {
         let data = vec![0];
 
-        let instruction = TreasuryInstruction::Initialize;
+        let instruction = TreasuryInstruction::WithdrawVested;
 
         let serialized = instruction.try_to_vec().unwrap();
         assert_eq!(data, serialized);
