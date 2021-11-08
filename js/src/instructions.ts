@@ -16,7 +16,6 @@ import {
 import { SimpleTreasuryMode } from './accounts';
 
 export enum TreasuryInstructions {
-    Initialize,
     CreateSimpleTreasury,
     WithdrawSimple,
     CreatedVestedTreasury,
@@ -71,38 +70,9 @@ export class VestedSchema {
 }
 
 export class TreasuryInstruction {
-    public static async Initialize(
-        programId: PublicKey,
-        funder: PublicKey,
-        mint: PublicKey
-    ): Promise<TransactionInstruction> {
-        const settingsId = await Treasury.settingsId(programId);
-
-        const keys: AccountMeta[] = [
-            am(funder, true, true),
-            am(mint, false, false),
-            am(settingsId, false, true),
-            am(SYSVAR_RENT_PUBKEY, false, false),
-            am(SystemProgram.programId, false, false)
-        ];
-
-        const instruction = new BasicSchema({
-            instructionId: TreasuryInstructions.Initialize
-        });
-        const instructionData = borsh.serialize(
-            INSTRUCTION_SCHEMA,
-            instruction
-        );
-
-        return new TransactionInstruction({
-            keys: keys,
-            programId,
-            data: Buffer.from(instructionData)
-        });
-    }
-
     private static async CreateSimpleTreasury(
         programId: PublicKey,
+        mint: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
@@ -112,6 +82,7 @@ export class TreasuryInstruction {
             am(funder, true, true),
             am(authority, false, false),
             am(treasury, true, true),
+            am(mint, false, false),
             am(SYSVAR_RENT_PUBKEY, false, false),
             am(TOKEN_PROGRAM_ID, false, false),
             am(SystemProgram.programId, false, false)
@@ -135,10 +106,10 @@ export class TreasuryInstruction {
 
     public static async CreateSimpleTreasuryAndFundAccount(
         programId: PublicKey,
+        mint: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
-        mint: PublicKey,
         mode: SimpleTreasuryMode = SimpleTreasuryMode.Locked
     ): Promise<TransactionInstruction[]> {
         const fund = await Treasury.simpleTreasuryAssociatedAccount(
@@ -158,6 +129,7 @@ export class TreasuryInstruction {
             ),
             await TreasuryInstruction.CreateSimpleTreasury(
                 programId,
+                mint,
                 funder,
                 treasury,
                 authority,
@@ -168,11 +140,11 @@ export class TreasuryInstruction {
 
     public static async WithdrawSimple(
         programId: PublicKey,
+        mint: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
         associated: PublicKey,
-        mint: PublicKey,
         amount: bigint
     ): Promise<TransactionInstruction> {
         const fund = await Treasury.simpleTreasuryAssociatedAccount(
@@ -180,7 +152,6 @@ export class TreasuryInstruction {
             mint,
             programId
         );
-        const settings = await Treasury.settingsId(programId);
 
         const keys: AccountMeta[] = [
             am(funder, true, true),
@@ -190,7 +161,6 @@ export class TreasuryInstruction {
             am(fund.authority, false, false),
             am(fund.fund, false, true),
             am(mint, false, false),
-            am(settings, false, false),
             am(TOKEN_PROGRAM_ID, false, false)
         ];
 
@@ -212,6 +182,7 @@ export class TreasuryInstruction {
 
     private static CreateVestedTreasury(
         programId: PublicKey,
+        mint: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
@@ -223,6 +194,7 @@ export class TreasuryInstruction {
             am(funder, true, true),
             am(authority, false, false),
             am(treasury, true, true),
+            am(mint, false, false),
             am(SYSVAR_RENT_PUBKEY, false, false),
             am(SYSVAR_CLOCK_PUBKEY, false, false),
             am(SystemProgram.programId, false, false)
@@ -248,10 +220,10 @@ export class TreasuryInstruction {
 
     public static async CreateVestedTreasuryAndFundAccount(
         programId: PublicKey,
+        mint: PublicKey,
         funder: PublicKey,
         treasury: PublicKey,
         authority: PublicKey,
-        mint: PublicKey,
         amount: bigint,
         period: bigint,
         percentage: number
@@ -273,6 +245,7 @@ export class TreasuryInstruction {
             ),
             TreasuryInstruction.CreateVestedTreasury(
                 programId,
+                mint,
                 funder,
                 treasury,
                 authority,
@@ -290,7 +263,6 @@ export class TreasuryInstruction {
         authority: PublicKey,
         mint: PublicKey
     ): Promise<TransactionInstruction> {
-        const settingsId = await Treasury.settingsId(programId);
         const fundAssoc = await Treasury.vestedTreasuryAssociatedAccount(
             treasury,
             mint,
@@ -310,8 +282,6 @@ export class TreasuryInstruction {
             am(treasury, false, true),
             am(fundAssoc.authority, false, false),
             am(fundAssoc.fund, false, true),
-            am(mint, false, false),
-            am(settingsId, false, false),
             am(SYSVAR_CLOCK_PUBKEY, false, false),
             am(TOKEN_PROGRAM_ID, false, false),
             am(SystemProgram.programId, false, false)

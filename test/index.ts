@@ -10,7 +10,6 @@ import {
     Keypair,
     LAMPORTS_PER_SOL,
     Transaction,
-    PublicKey,
     sendAndConfirmTransaction,
     SystemProgram
 } from '@solana/web3.js';
@@ -101,19 +100,6 @@ const treasury = new Treasury(connection, programId);
     );
     await token.mintTo(funderAssoc.address, mint_authority, [], 100_000);
 
-    console.log(`Attempting to initialize`);
-
-    const initTx = new Transaction().add(
-        await TreasuryInstruction.Initialize(
-            programId,
-            funder.publicKey,
-            token_id.publicKey
-        )
-    );
-
-    sig = await sendAndConfirmTransaction(connection, initTx, [funder]);
-    console.log(`Initialized: ${sig}`);
-
     const simple_treasury = new Keypair();
     const simple_authority = new Keypair();
     await launch_treasury(simple_treasury, simple_authority);
@@ -133,10 +119,10 @@ const treasury = new Treasury(connection, programId);
         const ins =
             await TreasuryInstruction.CreateVestedTreasuryAndFundAccount(
                 programId,
+                token_id.publicKey,
                 funder.publicKey,
                 vested_treasury.publicKey,
                 vested_authority.publicKey,
-                token_id.publicKey,
                 100_000n,
                 10n,
                 1000
@@ -175,7 +161,6 @@ const treasury = new Treasury(connection, programId);
         const sig = await sendAndConfirmTransaction(connection, tx, [
             funder,
             vested_treasury,
-            //vested_authority,
             mint_authority
         ]);
 
@@ -185,17 +170,6 @@ const treasury = new Treasury(connection, programId);
     }
 
     console.log(`verify account data`);
-
-    try {
-        const settings = await treasury.getSettings();
-        if (!settings.token.equals(token_id.publicKey)) {
-            console.log(
-                `settings.token mismatch ${settings.token.toBase58()} ${token_id.publicKey.toBase58()}`
-            );
-        }
-    } catch (e) {
-        console.log(e);
-    }
 
     try {
         const simple = await treasury.getSimpleTreasury(
@@ -315,10 +289,10 @@ async function launch_treasury(
     const tx = new Transaction().add(
         ...(await TreasuryInstruction.CreateSimpleTreasuryAndFundAccount(
             programId,
+            token_id.publicKey,
             funder.publicKey,
             treasury.publicKey,
             authority.publicKey,
-            token_id.publicKey,
             mode
         ))
     );

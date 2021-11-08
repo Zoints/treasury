@@ -5,17 +5,6 @@ use crate::account::SimpleTreasuryMode;
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, BorshDeserialize, BorshSerialize)]
 pub enum TreasuryInstruction {
-    /// Initialize the Treasury Program
-    ///
-    /// This only needs to be done once to set the initial parameters
-    ///
-    /// Accounts expected by this instruction:
-    ///   0. `[signer, writable]` The account funding the instruction
-    ///   1. `[]` The ZEE Token mint
-    ///   2. `[writable]` The global settings program account
-    ///   3. `[]` Rent sysvar
-    ///   4. `[]` System Program
-    Initialize,
     /// Create Simple Treasury
     ///
     /// Initializes a treasury for a specific user. SOL fees are paid by the funder.
@@ -24,7 +13,7 @@ pub enum TreasuryInstruction {
     ///   0. `[signer, writable]` The account funding the instruction
     ///   1. `[signer]` The authority that controls the treasury
     ///   2. `[writable]` The treasury account for the authority
-    ///   3. `[]` The ZEE token mint
+
     ///   4. `[]` The global settings program account
     ///   5. `[]` Rent sysvar
     ///   6. `[]` System Program
@@ -42,7 +31,7 @@ pub enum TreasuryInstruction {
     ///   0. `[signer, writable]` The account funding the instruction
     ///   1. `[]` The authority that controls the treasury
     ///   2. `[writable]` The treasury account for the authority
-    ///   3. `[]` The ZEE token mint
+    ///   3. `[]` The token mint
     ///   4. `[]` The global settings program account
     ///   5. `[]` Rent sysvar
     ///   6. `[]` Clock sysvar
@@ -63,7 +52,7 @@ pub enum TreasuryInstruction {
     ///   3. `[writable]` The treasury account
     ///   4. `[]` The treasury's fund authority
     ///   5. `[]` The treasury's fund associated account
-    ///   6. `[]` The ZEE token mint
+    ///   6. `[]` The token mint
     ///   7. `[]` The global settings program account
     ///   8. `[]` Clock sysvar
     ///   9. `[]` SPL Token Program
@@ -78,7 +67,7 @@ mod tests {
     pub fn test_serialize_instruction_init() {
         let data = vec![0];
 
-        let instruction = TreasuryInstruction::Initialize;
+        let instruction = TreasuryInstruction::WithdrawVested;
 
         let serialized = instruction.try_to_vec().unwrap();
         assert_eq!(data, serialized);

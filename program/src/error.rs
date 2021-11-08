@@ -10,18 +10,6 @@ pub enum TreasuryError {
     #[error("Invalid instruction")]
     InvalidInstruction,
 
-    /// Program has already been initialized
-    #[error("Program has already been initialized")]
-    AlreadyInitialized,
-
-    /// Program has not been initialized
-    #[error("Program has not been initialized")]
-    NotInitialized,
-
-    /// Invalid Settings Key
-    #[error("Invalid Settings Key")]
-    InvalidSettingsKey,
-
     /// The authority did not sign the transaction
     #[error("The authority did not sign the transaction")]
     MissingAuthoritySignature,

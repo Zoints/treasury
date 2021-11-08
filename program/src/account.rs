@@ -6,41 +6,6 @@ use solana_program::{
 };
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct Settings {
-    pub token: Pubkey,
-}
-
-impl Settings {
-    pub fn program_address(program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"settings"], program_id)
-    }
-
-    pub fn verify_program_address(key: &Pubkey, program_id: &Pubkey) -> Result<u8, ProgramError> {
-        let (derived_key, seed) = Self::program_address(program_id);
-        if *key != derived_key {
-            return Err(TreasuryError::InvalidSettingsKey.into());
-        }
-        Ok(seed)
-    }
-
-    pub fn from_account_info(
-        info: &AccountInfo,
-        program_id: &Pubkey,
-    ) -> Result<Settings, ProgramError> {
-        Self::verify_program_address(info.key, program_id)?; // implies the info is owned by the program
-        Self::try_from_slice(&info.data.borrow()).map_err(|_| TreasuryError::NotInitialized.into())
-    }
-
-    pub fn verify_mint(&self, key: &Pubkey) -> Result<(), ProgramError> {
-        match self.token == *key {
-            true => Ok(()),
-            false => Err(TreasuryError::MintWrongToken.into()),
-        }
-    }
-}
-
-#[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum SimpleTreasuryMode {
     Locked,
@@ -50,6 +15,7 @@ pub enum SimpleTreasuryMode {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct SimpleTreasury {
+    pub mint: Pubkey,
     pub mode: SimpleTreasuryMode,
     pub authority: Pubkey,
 }
@@ -100,6 +66,7 @@ impl SimpleTreasury {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct VestedTreasury {
+    pub mint: Pubkey,
     pub authority: Pubkey,
     pub initial_amount: u64,
     pub start: UnixTimestamp,
@@ -175,13 +142,8 @@ mod tests {
 
     #[test]
     pub fn test_serialize_accounts() {
-        let settings = Settings {
-            token: Pubkey::new_unique(),
-        };
-        let settings_data = settings.try_to_vec().unwrap();
-        assert_eq!(settings, Settings::try_from_slice(&settings_data).unwrap());
-
         let user_treasury = SimpleTreasury {
+            mint: Pubkey::new_unique(),
             mode: SimpleTreasuryMode::Locked,
             authority: Pubkey::new_unique(),
         };
@@ -195,6 +157,7 @@ mod tests {
     #[test]
     pub fn test_vested_max() {
         let vest = VestedTreasury {
+            mint: Pubkey::new_unique(),
             authority: Pubkey::new_unique(),
             initial_amount: 100_000,
             start: 0,
