@@ -9,16 +9,23 @@ export enum SimpleTreasuryMode {
 }
 
 export class SimpleTreasury {
+    public mint: PublicKey;
     public mode: SimpleTreasuryMode;
     public authority: PublicKey;
 
-    constructor(params: { mode: SimpleTreasuryMode; authority: PublicKey }) {
+    constructor(params: {
+        mint: PublicKey;
+        mode: SimpleTreasuryMode;
+        authority: PublicKey;
+    }) {
+        this.mint = params.mint;
         this.mode = params.mode;
         this.authority = params.authority;
     }
 }
 
 export class VestedTreasury {
+    public mint: PublicKey;
     public authority: PublicKey;
     public initialAmount: BN;
     public start: Date;
@@ -27,6 +34,7 @@ export class VestedTreasury {
     public withdrawn: BN;
 
     constructor(params: {
+        mint: PublicKey;
         authority: PublicKey;
         initialAmount: BN;
         start: BN;
@@ -34,6 +42,7 @@ export class VestedTreasury {
         vestmentPercentage: number;
         withdrawn: BN;
     }) {
+        this.mint = params.mint;
         this.authority = params.authority;
         this.initialAmount = params.initialAmount;
         this.start = new Date(params.start.toNumber() * 1000);
@@ -68,7 +77,7 @@ export const ACCOUNT_SCHEMA: borsh.Schema = new Map<any, any>([
         {
             kind: 'struct',
             fields: [
-                ['token', 'PublicKey'],
+                ['mint', 'PublicKey'],
                 ['mode', 'SimpleTreasuryMode'],
                 ['authority', 'PublicKey']
             ]
@@ -79,7 +88,7 @@ export const ACCOUNT_SCHEMA: borsh.Schema = new Map<any, any>([
         {
             kind: 'struct',
             fields: [
-                ['token', 'PublicKey'],
+                ['mint', 'PublicKey'],
                 ['authority', 'PublicKey'],
                 ['initialAmount', 'u64'],
                 ['start', 'u64'],
